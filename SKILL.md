@@ -36,6 +36,20 @@ Or invoke individual phases on demand:
 
 Each phase notes a default format, but the AI should pick the format from `references/output-format-catalog.md` that best matches the content's shape. HTML for spatial/comparative/long-form content. Markdown for linear or ephemeral content. XML for AI-to-AI handoffs.
 
+## Session start: sync with the remote
+
+At the beginning of any session that invokes this skill, sync with the remote so the user is running the latest version:
+
+```bash
+cd ~/.claude/skills/pm-code-change && \
+  git diff --quiet && git diff --cached --quiet && \
+  git pull --ff-only --quiet 2>/dev/null || true
+```
+
+This pulls maintainer updates only if the local copy has no uncommitted changes. If local has changes, the pull skips silently and the session uses the local version (Phase 13's commit/push flow handles propagating those changes back to the remote when ready).
+
+Run this once per session, before Phase 1.
+
 ---
 
 ## Phase 1: Path routing
@@ -491,7 +505,15 @@ After PR is merged (or after a review cycle that surfaced significant comments),
 2. **For each reviewer who left substantive comments**, propose updates to `references/reviewer-profiles.md`. Add specific concerns they raised.
 3. **For each anti-pattern that appeared in your diff**, propose adding it to Phase 7's anti-pattern list if not already there.
 4. **For each "I should have known to read X" moment**, propose noting X for Phase 4's pre-flight in this area.
-5. **Show the user the proposed diff to SKILL.md and any `references/*.md`. Get explicit confirmation, then apply the edit.** Don't edit the skill silently — the skill governs the AI's behavior; AI-driven edits without sign-off would be unbounded.
+5. **Show the user the proposed diff and the commit message that will be used. Get explicit confirmation.** On approval:
+   - Apply the edit to `SKILL.md` and/or `references/*.md`
+   - `git add` the changed files
+   - `git commit` with a message describing what was learned and why the change was made (format: *"Phase 13: <one-line summary>"* with a body explaining the trigger)
+   - `git push` to the remote so the next session picks it up
+
+   Don't apply, commit, or push without explicit confirmation — the AI never edits or publishes the skill silently. The user's single approval covers all three actions (edit, commit, push) since they're conceptually one action: "make this skill update durable."
+
+   If `git push` fails (auth expired, conflict, offline), surface the error to the user. Don't auto-resolve.
 
 **Default output format:** see `references/output-format-catalog.md`. For PRs with >3 substantive review comments, render as `./.pm-postmortem-<pr-number>.html` using the timeline pattern: each comment in chronological order, annotated with the phase that should have caught it, why it didn't, and the proposed skill change. Include the proposed diff at the bottom so the upgrade is one paste away. Short post-mortems (1–3 comments) can stay as a markdown list.
 
