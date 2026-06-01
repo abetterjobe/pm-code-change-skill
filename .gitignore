@@ -1,0 +1,6 @@
+# Local working files — these are generated per-PR in the project root, not here,
+# but ignore them if someone runs the skill from inside this directory.
+.pm-*.html
+.feedback-config.json
+.feedback-opt-in
+.DS_Store
