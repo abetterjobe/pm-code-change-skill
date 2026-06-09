@@ -196,7 +196,7 @@ Before writing code, investigate the area.
 - **Fast Path:** one grep for the changed string/file and a quick check for adjacent precedent. Skip the full investigation. If anything unexpected turns up, escalate.
 - **Standard / Full Path:** run all 4 steps below.
 
-1. **Search the codebase for similar features.** Existing patterns set precedent. If a similar feature exists, it almost certainly defines the convention to follow.
+1. **Search the codebase for similar features.** Existing patterns set precedent. If a similar feature exists, it almost certainly defines the convention to follow. **For UI/UX changes, check adjacent pages in the same flow first** — they're the highest-probability source of an applicable pattern. If you find one, state it explicitly: *"X pattern exists at [file]; I'll use that instead of writing new CSS/components."*
 2. **Read process docs in the area.** README, CONTRIBUTING, AGENTS.md, ADR/SDR/RFC directories, runbooks. Discovering process requirements mid-PR causes rework.
 3. **Identify the conceptual owner of the change.** Ask "who owns this data/behavior?" before "where is it easiest to add this?" The conceptually correct location is usually not the most convenient.
 4. **Identify likely reviewers and codeowners.** Check `CODEOWNERS` files or recent commit authors. Knowing who reviews helps frame the change — and seeds Phase 8 Pass 3.
@@ -284,6 +284,7 @@ Apply these rules continuously, not just at the start.
 2. **Read the docs before writing code.** Even when the task seems obvious.
 3. **Keep logic in the layer that owns it.** Don't inline business logic into schema types, serializers, config files, or interfaces. If a method does real work, it belongs in a dedicated class.
 4. **Don't add protective code without verifying the risk is real.** Before adding backward-compat shims, nil guards, migration helpers, feature flags — verify the scenario being protected against can actually happen in current production state. If the risk can't be confirmed, don't add the code.
+5. **Hold the line on minimum viable change.** Restate the smallest possible change at each major decision point in the build. If the working diff has grown beyond the original scope, surface it explicitly: *"This started as X files; it's now Y. The growth comes from [reason]. Is this necessary, or scope creep we should split?"*
 
 ### In-flight signals to flag
 
@@ -295,6 +296,7 @@ When any of these appear, surface them immediately:
 - User is editing process docs (SDR/ADR/RFC) they don't fully understand.
 - User would have to defend a choice in a comment they couldn't defend without quoting you.
 - A change you thought was internal turns out to affect a public API contract.
+- Iteration count on the same design decision is exceeding 3–5 attempts. Stop, restate the actual user need, and search again for existing patterns before continuing. Sustained iteration without convergence is a sign the wrong approach is being refined.
 
 ### Anti-patterns to avoid
 
@@ -307,6 +309,8 @@ Specific failure modes from prior work. Catch these proactively:
 - Mixing "empty list" and "null" semantics — pick one and be consistent.
 - Adding `if <invariant>` checks where the invariant is guaranteed by upstream filtering.
 - Deferring decisions to follow-up PRs when the fix is in scope and small.
+- Writing new CSS, components, or utilities for a UX pattern that exists elsewhere in the codebase. Grep for the existing pattern first, even if it means a less elegant implementation.
+- Pulling adjacent unrelated issues into the current PR ("while I'm here"). File a follow-up ticket. The PR's job is the original ask, not surrounding cleanup.
 
 ---
 
@@ -386,6 +390,12 @@ Only proceed to Phase 9 when every Pass 1 item is ✅. For Standard / Full Path,
 
 ## Phase 9: Opening the PR
 
+### Prerequisite: local verification
+
+Before assembling the PR draft, confirm the user has seen the change working in their local environment. The AI must not propose opening a PR until the user has confirmed local verification.
+
+If local verification is blocked by environment issues, the user makes the call — but the default is: **no local verification, no PR.** Do not propose pushing or opening a PR before this gate clears.
+
 ### Creation protocol
 
 The AI **creates the PR**, but only after explicit user confirmation. This is distinct from Phase 10's prohibition on posting comments — Phase 9 is a single bounded action with sign-off; Phase 10 is ongoing engagement with reviewers.
@@ -408,7 +418,7 @@ If the user doesn't confirm — or edits the draft — loop back to step 2 befor
 
 ### Draft checklist
 
-1. **Title accurately reflects the final change** — not the original intent if the work evolved.
+1. **Title and description accurately reflect the final change** — not the original intent if the work evolved. **If the diff changed after the initial draft (force-push, amend, file removal), re-check the description against the current diff and update any stale references.**
 2. **Description sections:** what changed, why (link ticket/intent), how to test, mobile/coordination impact.
 3. **Link the ticket** at the top of the description.
 4. **Update the ticket title** if the work diverged from the original ticket title.
@@ -423,7 +433,9 @@ If title/description drifts from reality during review, update them. Don't let t
 
 ### Posting protocol — the AI never posts
 
-**The AI never posts comments to GitHub.** The AI drafts; the user reviews, edits, and posts. No `gh pr comment`, no `gh api .../comments`, no batch auto-replies. The user is the only voice that hits the PR.
+**The AI never posts comments to GitHub unprompted.** The AI drafts; the user reviews, edits, and either posts themselves or directs the AI to post. No `gh pr comment`, no `gh api .../comments`, no batch auto-replies driven by the AI's own judgment. The user is always the author of the content.
+
+**Consent, not prohibition.** The rule is *no posting without explicit consent* — not "no posting ever." When the user reviews a draft and directs the AI to post it ("post this," "go ahead and reply"), the AI executes the post. The user has reviewed the content and consented. The prohibition is on the AI deciding *whether* to post, not on the mechanical action of submitting content the user has approved. **Do not refuse a clear request by quoting this section back at the user.**
 
 This applies to:
 - Inline code comments
