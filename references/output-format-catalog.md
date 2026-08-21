@@ -25,7 +25,7 @@ For each output the skill produces, pick the format that matches the content's s
 | Collapsible sections | Long output with sections of varying interest | Any phase producing >1 screen of content |
 | Color-coded status | Classifications with priority/severity | Pass 2 violations, Pass 5 fix-now/documented/rejected, Phase 12 merge checklist |
 | Reviewer-persona cards | Pass 3 output with one card per reviewer | Phase 8, Pass 3 when ≥3 reviewers |
-| File-by-file tour | PR walkthrough with reasoning per file | Phase 9 Full Path PR tour |
+| File-by-file tour | PR walkthrough with reasoning per file | Phase 9 Track 3 PR tour |
 
 ## File naming convention
 

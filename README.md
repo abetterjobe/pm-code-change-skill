@@ -4,7 +4,15 @@ A Claude Code skill for non-engineers (product managers) driving code changes in
 
 ## What it does
 
-Routes a coding task into **Fast**, **Standard**, or **Full Path** based on complexity, then runs only the workflow phases that match. A copy change stays cheap; a complex PR gets the full treatment (multi-pass review, reviewer-perspective rehearsal, fresh-eyes review assistance, post-mortem upgrade loop).
+Routes a coding task into one of three tracks, then runs only the workflow that matches:
+
+| Track | For | Who drives |
+|---|---|---|
+| **1 — Direct** | Copy, labels, styling, animation, config, analytics events | PM alone — a self-contained 6-step workflow |
+| **2 — Guided** | Real behavior changes in one repo | PM drives, AI advises, engineer reviews |
+| **3 — Partnered** | Contract changes, multi-system work, placement ambiguity | Engineer scopes the design *before* code |
+
+A copy change stays genuinely cheap. A complex PR gets the full treatment (multi-pass review, reviewer-perspective rehearsal, fresh-eyes review assistance, post-mortem upgrade loop). Certain changes — migrations, schema changes, anything touching customer money or a displayed figure — force Track 3 regardless of how small the diff looks.
 
 The skill is built around guardrails for non-engineer authorship:
 
@@ -13,7 +21,11 @@ The skill is built around guardrails for non-engineer authorship:
 - AI never edits the skill's own instructions without sign-off
 - For complex code, the workflow explicitly routes to engineer involvement before any code is written
 
-See [`SKILL.md`](./SKILL.md) for the full 13-phase workflow.
+**Standards come from The Book**, not from this skill. Betterment's engineering standards (https://the-book.betterment.io) auto-load into Claude Code by file type. This skill owns *process* — how a non-engineer gets a change from idea to merge without wasting reviewer time — and cites The Book for *standards* rather than keeping a copy that drifts.
+
+Every track ends with ticket reconciliation: the Jira ticket is described accurately, assigned to you, in an active state, in the current sprint, and linked to the PR — or created and filled out if it doesn't exist yet.
+
+See [`SKILL.md`](./SKILL.md) for the full workflow (Phase 0 through Phase 14).
 
 ## Install
 
@@ -29,15 +41,17 @@ In any Claude Code session, just start describing what you want to do:
 
 > *"I want to update the 'Add a beneficiary' button text to 'Add beneficiary' across the app."*
 
-The skill runs the gate (3 user-answerable questions), routes the task, and proceeds through only the phases that match the chosen path.
+The skill runs the gate (3 user-answerable questions plus a hard-override check), routes the task to a track, and proceeds through only the workflow that matches.
 
 Or invoke individual phases on demand:
 
-- *"do the routing"* → Phase 1 (path selection)
+- *"set up the branch"* → Phase 0 (workspace + branch hygiene)
+- *"do the routing"* → Phase 1 (track selection)
 - *"sharpen the prompt"* → Phase 2 (structured task brief)
 - *"do the pre-flight"* → Phase 4 (investigate the code area)
 - *"review before PR"* → Phase 8 (multi-pass review)
 - *"post-mortem"* → Phase 13 (improve the skill)
+- *"reconcile the ticket"* → Phase 14 (Jira accuracy, assignment, sprint, PR linkage)
 
 See `SKILL.md` for the full invocation map.
 
@@ -45,7 +59,7 @@ See `SKILL.md` for the full invocation map.
 
 ```
 pm-code-change/
-├── SKILL.md                              # The 13-phase workflow
+├── SKILL.md                              # Phase 0-14 workflow + track routing
 ├── README.md                             # This file
 └── references/
     ├── reviewer-profiles.md              # Templates for Phase 8 Pass 3

@@ -1,6 +1,6 @@
 ---
 name: pm-code-change
-description: Workflow for non-engineers driving code changes in a shared codebase. Routes the task into Fast, Standard, or Full Path based on complexity. Use when starting a coding task, asking "should I build this or loop in an engineer?", preparing to open a PR, or responding to PR review comments.
+description: Workflow for non-engineers driving code changes in a shared codebase. Routes the task into the Direct, Guided, or Partnered track based on complexity and blast radius. Use when starting a coding task, asking "should I build this or loop in an engineer?", preparing to open a PR, or responding to PR review comments.
 ---
 
 # PM Code Change Skill
@@ -20,17 +20,19 @@ Run the full workflow end-to-end by saying "run the PM code change workflow."
 
 Or invoke individual phases on demand:
 
+- "set up the branch" → Phase 0
 - "do the routing" → Phase 1
 - "sharpen the prompt" → Phase 2
 - "do the intake" → Phase 3
 - "do the pre-flight" → Phase 4
 - "score complexity" → Phase 5
 - "make the plan" → Phase 6
-- "review before PR" → Phase 8 (passes per path)
+- "review before PR" → Phase 8 (passes per track)
 - "just persona review" → Phase 8, Pass 3 only
 - "fresh eyes" → Phase 8, Pass 4 only
 - "respond to comments" → Phase 10
 - "post-mortem" → Phase 13
+- "reconcile the ticket" → Phase 14
 
 ## Output format
 
@@ -48,75 +50,163 @@ cd ~/.claude/skills/pm-code-change && \
 
 This pulls maintainer updates only if the local copy has no uncommitted changes. If local has changes, the pull skips silently and the session uses the local version (Phase 13's commit/push flow handles propagating those changes back to the remote when ready).
 
-Run this once per session, before Phase 1.
+Run this once per session, before Phase 0.
 
 ---
 
-## Phase 1: Path routing
+## Standards: The Book is the source of truth
 
-Run this first. Its job is to prevent the full workflow's overhead in the cheap case. The full workflow exists for Full Path PRs where skipping a phase costs days; for a copy change, running it costs hours and clutters the repo.
+Betterment's engineering standards live in **The Book** (`the-book` CLI, or https://the-book.betterment.io). This skill does **not** restate them. Where a standard exists in The Book, cite it and follow it — don't maintain a second copy here that can drift.
+
+The Book auto-loads into Claude Code sessions when set up (`the-book ai setup`): path-scoped indexes land in `~/.claude/rules/the-book/` and full rule bodies in `~/.claude/references/the-book/`, refreshed each session. Rules arrive based on the file types being touched, so Ruby work pulls Ruby standards, frontend work pulls JavaScript and frontend-testing standards.
+
+Query it directly when you need something the auto-load didn't surface:
+
+```bash
+the-book topics            # what rule groups exist, and their file patterns
+the-book rules <id>        # a specific rule body
+the-book search "<term>"   # search across all sections
+```
+
+**What this means for this skill:** this skill owns *process* — how a non-engineer moves a change from idea to merge without wasting reviewer time. The Book owns *standards* — what good code looks like here. When the two touch, The Book wins and this skill points at it.
+
+If The Book has no guidance on something, say so rather than inventing a standard.
+
+---
+
+## Phase 0: Workspace and branch setup
+
+Run this before anything else, including routing. It is cheap, it is mechanical, and skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
+
+### New task means new branch
+
+Starting something new means branching off `origin/main` immediately. No questions, no "let me first see what's here." Never build on `main`, and never build on a branch left over from a different task.
+
+```bash
+git fetch origin && git checkout -b <descriptive-branch-name> origin/main
+```
+
+### Verify the branch before every consequential action
+
+Before any test run, commit, push, or PR, confirm where you actually are:
+
+```bash
+git branch --show-current
+```
+
+Do not assume an earlier checkout is still in effect. Sessions get long, other work interleaves, and hooks or scripts can move you. Check, don't remember.
+
+### One task per branch
+
+Never mix two independent tasks on one branch or in one PR. If a second task comes up mid-flow, that's a separate branch off `origin/main`. When switching between tasks, state the switch explicitly and show the branch you landed on as proof.
+
+### Worktree isolation is absolute
+
+If the session is running in a git worktree, touch **nothing** outside that worktree. Not `main`, not the shared checkout, not another task's directory. Do not leave the worktree to escape friction — friction inside the worktree gets solved inside the worktree.
+
+Note that some repo-level conveniences are unsafe inside a worktree — a database reset that assumes the shared checkout is one of them. Check before running repo scripts that touch shared state.
+
+### Know what's already dirty
+
+Before starting, see what's already modified so you can tell your changes from pre-existing ones later:
+
+```bash
+git status --short
+```
+
+Untracked or modified files that predate your work are not yours to commit. Note them now so Phase 8 can tell them apart.
+
+---
+
+## Phase 1: Track routing
+
+Run this after Phase 0. Its job is to prevent the full workflow's overhead in the cheap case. The full workflow exists for changes where skipping a phase costs days; for a copy change, running it costs hours and clutters the repo.
+
+There are three tracks, and they differ in *shape*, not just in how many steps get skipped:
+
+| Track | For | Who drives |
+|---|---|---|
+| **1 — Direct** | Presentational and configuration changes: copy, labels, styling, animation, config values, analytics events on existing screens | PM alone, start to finish |
+| **2 — Guided** | Real behavior changes inside one repo, in an area with existing precedent | PM drives, AI advises, engineer reviews |
+| **3 — Partnered** | Contract changes, multi-system work, or genuine placement ambiguity | Engineer scopes the design *before* code |
+
+The distinction that matters most is Track 3: its defining feature is not more review passes, it's that **the PM shouldn't be scoping it solo**. If a task lands in Track 3, the first action is a conversation, not a keystroke.
 
 ### The 3 questions
 
-These are deliberately user-answerable. The AI handles the technical questions (file count, API contract impact, placement ambiguity, cross-system coordination) in Phase 4 (pre-flight) and Phase 5 (complexity assessment) after routing, and escalates the path if anything technical comes back high.
-
-Answer each:
+Deliberately user-answerable. The AI handles the technical questions (file count, API contract impact, placement ambiguity, cross-system coordination) in Phase 4 and Phase 5 after routing, and escalates if anything comes back high.
 
 1. Can you describe what changes in one sentence?
 2. Is it easily reversible by re-editing the same lines?
-3. Is it labels/copy/config only — no new business logic?
+3. Is it presentational or configuration only — copy, labels, styling, animation, config values, or an analytics event on an existing screen — with no new business logic?
 
 **Scoring:**
 
-- **3/3 yes → Fast Path** (Tier 1)
-- **1–2 yes → Standard Path** (Tier 2)
-- **0 yes → Full Path** (Tier 3)
+- **3/3 yes → Track 1 (Direct)**
+- **1–2 yes → Track 2 (Guided)**
+- **0 yes → Track 3 (Partnered)**
 
 When borderline, **lean lighter**. Escalation mid-flow is cheap; downgrading is awkward — and Phase 5 will catch a misroute almost immediately.
 
-### Path → phase map
+### Hard overrides — these force Track 3
 
-| Phase | Fast | Standard | Full |
-|---|---|---|---|
-| 2 Sharpen prompt | skip | optional | run |
-| 3 Intake | one-line restate | run | run |
-| 4 Pre-flight | quick precedent search | run | run + module map |
-| 5 Complexity confirm | quick spot-check (all 4 axes must score low; else escalate) | confirm | run |
-| 6 Planning | skip | run | run + side-by-side if alternatives |
-| 7 Build | execution rules apply | execution rules apply | execution rules apply |
-| 8 Pre-PR review | Pass 1 only, markdown | 1+2+3+5, HTML if >3 findings | all 5 passes + UI pass, HTML |
-| 9 Open PR | one-line description | standard description | full description + HTML tour |
-| 10–12 Reviews / CI / merge | run | run | run |
-| 13 Post-mortem | only if surprised | run if substantive comments | run |
+Regardless of how the three questions scored, any of the following puts the task in Track 3:
+
+- A database migration
+- A change to a GraphQL schema, a REST endpoint, or an event payload
+- A new field or method that other apps, services, or Mobile consume
+- More than one repository
+- Authentication, authorization, or permissions
+- Anything that moves customer money, or changes a displayed balance, projection, or performance figure
+
+The last one deserves care in this codebase. Changing the *label* above a dollar figure is Track 1. Changing the *figure* is Track 3, however small the diff looks.
+
+### Track → phase map
+
+Track 1 is written out in full below and does not reference phase numbers — that's deliberate, so the light path reads as its own short workflow rather than a list of exemptions.
+
+| Phase | Track 2 — Guided | Track 3 — Partnered |
+|---|---|---|
+| 0 Workspace + branch | run | run |
+| 1 Routing | run | run |
+| 2 Sharpen prompt | optional | run |
+| 3 Intake | run | run |
+| 4 Pre-flight | run | run + module map |
+| 5 Complexity confirm | confirm | run |
+| 6 Planning | run | run + engineer alignment before code |
+| 7 Build | execution rules apply | execution rules apply |
+| 8 Pre-PR review | Passes 1, 2, 3, 5; HTML if >3 findings | all 5 passes + UI pass, HTML |
+| 9 Open PR | standard description | full description + HTML tour |
+| 10–12 Reviews / CI / merge | run | run |
+| 13 Post-mortem | run if substantive comments | run |
+| 14 Ticket reconciliation | run | run |
+
+### Track 1 — Direct: the whole workflow
+
+Six steps. Nothing else runs — no complexity scoring, no reviewer personas, no fresh-eyes pass, no post-mortem, no HTML artifacts.
+
+1. **Restate the ask in one line, and name the files.** One search for the string or component being changed. If a precedent exists for how this kind of change is done nearby, follow it. If the search turns up something unexpected — the string lives in five places, or the component is shared more widely than expected — stop and escalate to Track 2.
+2. **Confirm you're on a fresh branch off `origin/main`** (Phase 0).
+3. **Make the change.** The execution rules in Phase 7 still apply. A small change doesn't get to violate a standard.
+4. **Verify.** Run the targeted checks for the files touched, and see the change working locally (Phase 9's local verification applies to every track, including this one).
+5. **Check the commit's file list before pushing** — see Phase 8, Pass 1. This is where Track 1 changes most often go wrong: the diff is two lines, and three unrelated files ride along with it.
+6. **Open the PR** with a one-line description, after explicit user confirmation (Phase 9's creation protocol).
+7. **Reconcile the ticket** (Phase 14). This runs on every track — a two-line copy change still needs its ticket assigned, in the right state, in the sprint, and linked to the PR.
+
+If a Track 1 change draws substantive review comments, that's a signal Phase 1 misrouted — worth a post-mortem even though Track 1 normally skips it.
 
 ### Escalation triggers
 
-Move up a path mid-flow if any fire:
+Move up a track mid-flow if any fire:
 
-- File count exceeds 3 (Fast → Standard)
-- A reviewer disagrees with the approach (Standard → Full)
-- Scope creep emerges (any path → next up)
-- An in-flight signal from Phase 7 triggers (any path → next up)
-- A pre-flight finding reveals an unfamiliar area, an SDR requirement, or a placement ambiguity (Fast → Standard, Standard → Full)
+- File count exceeds 3 (Track 1 → 2)
+- A reviewer disagrees with the approach (Track 2 → 3)
+- Scope creep emerges (any track → next up)
+- An in-flight signal from Phase 7 triggers (any track → next up)
+- A pre-flight finding reveals an unfamiliar area, a design-review requirement, or a placement ambiguity (Track 1 → 2, Track 2 → 3)
+- Any hard override surfaces that wasn't visible at routing time (any track → 3)
 
-State the escalation explicitly: *"I'm escalating from Fast Path to Standard Path because [trigger]."* Then resume from the appropriate phase.
-
-### Worked example — Fast Path
-
-> *"Change the modal header from 'Add a beneficiary' to 'Add beneficiary' across the app."*
-
-Routing: 3/3 yes → Fast Path.
-
-What runs:
-- One-line restate.
-- Quick grep for the old string. Note the file(s).
-- Make the change.
-- Phase 8 Pass 1: tests pass, no other files touched, scope still tiny.
-- Open PR with a one-line description (after user confirmation).
-
-What does **not** run: Phase 2, Phase 6, Phase 8 Pass 2/3/4/5, Phase 9 PR tour, Phase 13 post-mortem, any HTML output.
-
-Phase 5 still runs as a quick spot-check (all 4 axes must score low). If any axis comes back high, the routing was wrong — escalate.
+State the escalation explicitly: *"I'm escalating from Track 1 to Track 2 because [trigger]."* Then resume from the appropriate phase.
 
 ---
 
@@ -126,13 +216,14 @@ Before Phase 3, sharpen the ask itself. The cost of a fuzzy initial ask compound
 
 **When to run this phase:**
 - The initial ask is more than one sentence and isn't already a structured ticket.
-- Phase 1 routed this to Standard or Full Path.
+- Phase 1 routed this to Track 2 or Track 3.
 - The user is starting a new feature, not a follow-up to an existing one.
 - The user explicitly says "sharpen the prompt."
 
 **When to skip:**
 - The ask is a one-liner with obvious scope.
 - The user is mid-task continuing prior work.
+- Track 1.
 
 **Process:**
 
@@ -167,7 +258,7 @@ Before Phase 3, sharpen the ask itself. The cost of a fuzzy initial ask compound
 </task-brief>
 ```
 
-For Standard / Full Path tasks, save the Brief to `./.pm-brief.html` so the user can review it before Phase 3 starts.
+For Track 2 / Track 3 tasks, save the Brief to `./.pm-brief.html` so the user can review it before Phase 3 starts.
 
 ---
 
@@ -177,7 +268,7 @@ Establish what's actually being asked.
 
 **If Phase 2 ran:** the Brief already covers ambiguity. Phase 3 confirms the Brief and produces a one-sentence statement of intent. Skip clarifying questions unless something in the Brief is still unclear.
 
-**If Phase 2 was skipped (Fast Path):** do the full intake from scratch.
+**If Phase 2 was skipped:** do the full intake from scratch.
 
 1. **Restate the ask in one sentence.** If you can't, ask the user to clarify before proceeding.
 2. **Ask any questions you have** (skip if Phase 2 already covered them). Don't assume. If anything is ambiguous — the desired behavior, affected users, which entity/account/account-type, what "done" looks like, whether existing similar features should be matched — surface it now.
@@ -192,30 +283,32 @@ Establish what's actually being asked.
 
 Before writing code, investigate the area.
 
-**By path:**
-- **Fast Path:** one grep for the changed string/file and a quick check for adjacent precedent. Skip the full investigation. If anything unexpected turns up, escalate.
-- **Standard / Full Path:** run all 4 steps below.
+**By track:**
+- **Track 1:** one search for the changed string/component and a quick check for adjacent precedent. If anything unexpected turns up, escalate.
+- **Track 2 / 3:** run all 4 steps below.
 
 1. **Search the codebase for similar features.** Existing patterns set precedent. If a similar feature exists, it almost certainly defines the convention to follow. **For UI/UX changes, check adjacent pages in the same flow first** — they're the highest-probability source of an applicable pattern. If you find one, state it explicitly: *"X pattern exists at [file]; I'll use that instead of writing new CSS/components."*
-2. **Read process docs in the area.** README, CONTRIBUTING, AGENTS.md, ADR/SDR/RFC directories, runbooks. Discovering process requirements mid-PR causes rework.
-3. **Identify the conceptual owner of the change.** Ask "who owns this data/behavior?" before "where is it easiest to add this?" The conceptually correct location is usually not the most convenient.
+2. **Read process docs in the area.** README, CONTRIBUTING, AGENTS.md, ADR/SDR/RFC directories, runbooks. Discovering process requirements mid-PR causes rework. The Book's path-scoped rules load automatically, but repo- and directory-specific docs do not — read those yourself.
+3. **Identify the conceptual owner of the change.** Ask "who owns this data/behavior?" before "where is it easiest to add this?" The conceptually correct location is usually not the most convenient. The Book's guidance on domain ownership is the reference here — see `the-book ways application-design`.
 4. **Identify likely reviewers and codeowners.** Check `CODEOWNERS` files or recent commit authors. Knowing who reviews helps frame the change — and seeds Phase 8 Pass 3.
 
-If any of these turn up something unexpected (existing precedent, an SDR process, an unclear owner), pause and flag it.
+**Does this need a design review?** The Book requires a design review when introducing a new pattern, a novel application of an existing pattern, or a new way of interacting with another app — and a lightweight ADR when a pattern changes (`the-book ways writing-software`). If pre-flight suggests any of those, surface it now. Discovering a design-review requirement after the code is written is one of the most expensive misses available.
+
+If any of these turn up something unexpected (existing precedent, a design-review requirement, an unclear owner), pause and flag it.
 
 ---
 
 ## Phase 5: Complexity assessment
 
-**By path:**
-- **Fast Path:** quick spot-check. Score all 4 axes; every one must come back **low**. If any axis scores high, the routing was wrong — escalate to Standard or Full based on the count of highs. State the escalation explicitly.
-- **Standard Path:** full scoring; confirm Phase 1's classification and refine.
-- **Full Path:** full scoring with detailed reasoning per axis.
+**By track:**
+- **Track 1:** skip. The three routing questions plus the hard-override list already did this job. If the change felt like it needed scoring, it wasn't Track 1.
+- **Track 2:** full scoring; confirm Phase 1's classification and refine.
+- **Track 3:** full scoring with detailed reasoning per axis.
 
 Score the task on four axes. Each axis is graded **low** or **high** complexity.
 
 **Axis 1 — Change type**
-- low: copy, labels, flag toggles, analytics events on existing screens
+- low: copy, labels, styling, animation, flag toggles, analytics events on existing screens
 - high: behavior changes (new logic, conditions, UI flows) OR adding/changing fields or methods that other systems depend on
 
 **Axis 2 — API contract impact**
@@ -232,13 +325,13 @@ Score the task on four axes. Each axis is graded **low** or **high** complexity.
 
 ### Scoring
 
-Count the number of axes scored high. That total maps to a path — a framework for deciding whether the PM can proceed solo, should read docs first, or should align with an engineer before any code is written.
+Count the number of axes scored high. That total maps to a track — a framework for deciding whether the PM can proceed solo, should read docs first, or should align with an engineer before any code is written.
 
-- **0 highs → Fast Path.** PM can drive. Proceed.
-- **1 high → Standard Path.** PM can drive, but read the relevant area docs (README, CONTRIBUTING, ADR) before starting.
-- **2+ highs → Full Path.** Pause before writing code. Either loop in an engineer to scope the design, or at minimum spend time defining the solution more rigorously with an engineer's input. State this to the user: *"This looks like a Full Path task because [specific axes that scored high]. Want to pull in an engineer first, or proceed?"*
+- **0 highs → Track 1 or 2.** PM can drive. Proceed.
+- **1 high → Track 2.** PM can drive, but read the relevant area docs before starting.
+- **2+ highs → Track 3.** Pause before writing code. Either loop in an engineer to scope the design, or at minimum spend time defining the solution more rigorously with an engineer's input. State this to the user: *"This looks like Track 3 because [specific axes that scored high]. Want to pull in an engineer first, or proceed?"*
 
-If this scoring contradicts Phase 1's initial routing, the more cautious path wins — and state the escalation explicitly.
+If this scoring contradicts Phase 1's initial routing, the more cautious track wins — and state the escalation explicitly.
 
 ### High-complexity disguises (tasks that look low but aren't)
 
@@ -246,6 +339,7 @@ If this scoring contradicts Phase 1's initial routing, the more cautious path wi
 - "Just show this data on the screen" — if the data isn't on the client, it's an API change.
 - "It should already be there, just expose it" — if it's not exposed, find out why first.
 - "It's the same as [other feature]" — similar features often diverge in subtle ways.
+- "Just change the number" — a displayed figure is a contract with the customer, not a label.
 
 ---
 
@@ -263,27 +357,34 @@ Before building, write down the approach.
    - Phrased so the user can read it aloud or copy/paste
    - Focused on what you need to know to proceed confidently
 
-   Categories to draw from: **placement, contract shape, process (SDR/ADR/RFC), coordination, conventions, risk.**
+   Categories to draw from: **placement, contract shape, process (design review / ADR), coordination, conventions, risk.**
 
-3. **Decide based on the path:**
-   - **Fast Path** — proceed.
-   - **Standard Path** — the AI reads the relevant area docs itself, then proceeds.
-   - **Full Path** — share approach, unknowns, and engineer questions with the user. They decide. If engineer questions exist, state explicitly: *"Once you have answers, share them and I can resume."*
+3. **Decide based on the track:**
+   - **Track 2** — the AI reads the relevant area docs itself, then proceeds.
+   - **Track 3** — share approach, unknowns, and engineer questions with the user. **Alignment with an engineer happens before code, not after.** If engineer questions exist, state explicitly: *"Once you have answers, share them and I can resume."*
 
 ---
 
 ## Phase 7: Building
 
-**By path:** same rules apply across all paths — Fast Path doesn't get to skip the execution rules just because the change is small. Anti-patterns are still anti-patterns at any size.
+**By track:** the same rules apply across all tracks — Track 1 doesn't get to skip the execution rules just because the change is small. Anti-patterns are still anti-patterns at any size.
 
 Apply these rules continuously, not just at the start.
 
 ### Execution rules
 
-1. **Place things where they belong.** Conceptual owner before convenient call site.
-2. **Read the docs before writing code.** Even when the task seems obvious.
-3. **Keep logic in the layer that owns it.** Don't inline business logic into schema types, serializers, config files, or interfaces. If a method does real work, it belongs in a dedicated class.
-4. **Don't add protective code without verifying the risk is real.** Before adding backward-compat shims, nil guards, migration helpers, feature flags — verify the scenario being protected against can actually happen in current production state. If the risk can't be confirmed, don't add the code.
+Betterment's code standards come from The Book and load automatically by file type — follow them. The rules below are the ones this skill adds on top, because they address failure modes specific to AI-assisted work by a non-engineer.
+
+1. **Place things where they belong.** Identify the conceptual owner before the convenient call site. The Book's domain-ownership guidance is the reference (`the-book ways application-design`); the failure mode this rule guards against is reaching for whatever type is already in context.
+2. **Read the docs before writing code.** Even when the task seems obvious. The Book auto-loads standards, but repo READMEs, ADRs, runbooks, and contributing guides do not — and process requirements discovered mid-PR cause rework.
+3. **Don't quietly expand scope after the user has confirmed a next step.** When the user says testing is done and asks for a PR, open the PR. Don't detour into unrequested tests, refactors, or polish first. If you believe something else is needed, say so in a sentence and let them decide.
+
+For code-shape standards — logic belonging in domain models rather than controllers or schema definitions, and not building speculative protective machinery — The Book states both, with reasoning:
+
+- *"We build skinny controllers and rich domain models"* — `the-book ways writing-software`
+- *"We practice malleable design rather than future-proofing"*, because every joint that doesn't prove necessary *"leaves scar tissue"* — same source
+
+Cite those rather than restating them. They apply to nil guards, backward-compat shims, migration helpers, and speculative flags: if the scenario being protected against can't be confirmed against current production state, don't write the code.
 
 ### In-flight signals to flag
 
@@ -292,10 +393,11 @@ When any of these appear, surface them immediately:
 - Reviewers disagree on the same design point.
 - A reviewer references a pattern in code you haven't read.
 - Scope grew since starting (file count up, new types/interfaces appearing). Surface explicitly: *"This started as X files; it's now Y. The growth comes from [reason]. Is this necessary, or scope creep we should split?"*
-- User is editing process docs (SDR/ADR/RFC) they don't fully understand.
+- User is editing process docs (ADR/SDR/RFC) they don't fully understand.
 - User would have to defend a choice in a comment they couldn't defend without quoting you.
 - A change you thought was internal turns out to affect a public API contract.
 - Iteration count on the same design decision is exceeding 3–5 attempts. Stop, restate the actual user need, and search again for existing patterns before continuing. Sustained iteration without convergence is a sign the wrong approach is being refined.
+- The diff is approaching ~250 lines. That's already chunky by Betterment standards — see Phase 9 on splitting.
 
 ### Anti-patterns to avoid
 
@@ -316,35 +418,46 @@ Specific failure modes from prior work. Catch these proactively:
 
 This is the highest-leverage phase. Most engineer-time-wasted on past PRs has been predictable comments that a robust self-review would have caught. The goal here is to surface those comments before a human sees them.
 
-**By path:**
-- **Fast Path:** Pass 1 only. Markdown output, in-chat. Skip everything else.
-- **Standard Path:** Passes 1, 2, 3 (1–2 personas), and 5. Skip Pass 4 unless the change is substantial (≥5 files, new public API surface, or new business-logic class). HTML output only if >3 findings.
-- **Full Path:** All 5 passes + UI pass (if any UI changed). HTML output mandatory.
+**By track:**
+- **Track 1:** Pass 1 only. Markdown output, in-chat. Skip everything else.
+- **Track 2:** Passes 1, 2, 3 (1–2 personas), and 5. Skip Pass 4 unless the change is substantial (≥5 files, new public API surface, or new business-logic class). HTML output only if >3 findings.
+- **Track 3:** All 5 passes + UI pass (if any UI changed). HTML output mandatory.
 
-Run the included passes in order. Don't skip to Phase 9 until the path's final pass is complete.
+Run the included passes in order. Don't skip to Phase 9 until the track's final pass is complete.
 
 ### Pass 1 — Mechanical checklist
 
-The minimum gate.
+The minimum gate, and the only gate on Track 1. Everything here is checkable without judgment, which is exactly why it gets skipped and exactly why it bites.
 
 1. Tests written and passing for new behavior.
 2. Schema/generated files regenerated (not hand-edited).
 3. No commented-out code, no debug prints, no TODO markers added in this diff.
 4. Diff is minimal — anything not serving the original task is cut.
 5. Did scope expand beyond the original ask? If yes, surface to the user — ask whether to split before continuing.
+6. **Run the formatter, not just the linter.** CI lint jobs commonly run both, and a formatter-only failure turns CI red after a clean-looking local run. Check what the repo's lint job actually invokes and run all of it. Where the repo provides a combined pre-flight script for changed files, prefer it.
+7. **Read the commit's file list before pushing.** Not the diff — the file list:
 
-### Pass 2 — Adversarial self-review against the skill's own rules
+   ```bash
+   git show --stat --oneline HEAD
+   ```
 
-Walk the diff line-by-line against Phase 7's execution rules and anti-patterns. For each rule, ask "did I violate this?" — out loud, with a yes/no. Not "did I try to follow this?" — *did the resulting code follow it?*
+   Every file in it must be one you meant to touch. This is the single most repeated mechanical failure in this skill's history: generated or reset artifacts — a dumped database structure file being the classic — sit staged in the working tree and get swept into an unrelated commit, breaking CI far beyond the PR's own scope. Cross-reference against the pre-existing dirty files noted in Phase 0. If something you didn't author is in the list, unstage it before pushing.
 
-- Is anything inlined that should be its own class? (Rule 3)
-- Did I add protective code without verifying the risk is real? (Rule 4)
-- Is anything placed on the most reachable type instead of the conceptual owner? (Anti-pattern)
+### Pass 2 — Adversarial self-review against the rules
+
+Walk the diff line-by-line against Phase 7's execution rules and anti-patterns, and against the Book rules that loaded for the file types you touched. For each, ask "did I violate this?" — out loud, with a yes/no. Not "did I try to follow this?" — *did the resulting code follow it?*
+
+- Is anything inlined that should live in a domain model? (Book: skinny controllers, rich domain models)
+- Did I add protective code for a risk I never confirmed? (Book: malleable design over future-proofing)
+- Is anything placed on the most reachable type instead of the conceptual owner? (Rule 1)
 - Are there `if <invariant>` checks where the invariant is guaranteed upstream? (Anti-pattern)
 - Did I mix "empty list" and "null" semantics? (Anti-pattern)
 - Did I defer small in-scope fixes to follow-ups when they belonged here? (Anti-pattern)
+- Did I add code comments? (Book: we don't write them outside public library APIs and genuinely gnarly code)
 
 Report each as ✅ clean / ⚠️ borderline / ❌ violation. Fix every ❌ before Pass 3.
+
+Where an internal tool already reviews a diff against The Book, prefer it over hand-rolling this check — it reads from the live rule set and won't drift.
 
 ### Pass 3 — Reviewer persona simulation
 
@@ -382,7 +495,7 @@ Collect findings from passes 1–4 into one list. For each finding, classify it:
 
 **Default output format:** see `references/output-format-catalog.md`. For most PRs with >3 findings, render as `./.pm-review-<short-sha>.html` using the annotated-diff pattern: columns for source pass, file:line (linked), severity, classification, reasoning. The "documented trade-offs" rows copy cleanly into the PR description. Short reviews (≤3 minor findings) can stay as a markdown list.
 
-Only proceed to Phase 9 when every Pass 1 item is ✅. For Standard / Full Path, every Pass 2 ❌ must also be fixed.
+Only proceed to Phase 9 when every Pass 1 item is ✅. For Track 2 / Track 3, every Pass 2 ❌ must also be fixed.
 
 ---
 
@@ -390,9 +503,30 @@ Only proceed to Phase 9 when every Pass 1 item is ✅. For Standard / Full Path,
 
 ### Prerequisite: local verification
 
-Before assembling the PR draft, confirm the user has seen the change working in their local environment. The AI must not propose opening a PR until the user has confirmed local verification.
+**Applies to every track, including Track 1.** Before assembling the PR draft, confirm the user has seen the change working in their local environment. The AI must not propose opening a PR until the user has confirmed local verification.
 
-If local verification is blocked by environment issues, the user makes the call — but the default is: **no local verification, no PR.** Do not propose pushing or opening a PR before this gate clears.
+This gate is only useful if the AI can actually help the user clear it. Know the repo's local startup path cold — the PM is often running the environment only in these sessions, so vague instructions strand them.
+
+General shape, adapted to whatever the repo actually uses:
+
+1. **Reset the local database before running.** Never assume the local DB matches the branch's schema. *(Not safe inside a worktree — see Phase 0.)*
+2. **Start the environment from the directory the tooling expects**, not the repo root, if the repo's dev tooling is per-application.
+3. **Know the interactive-tool gotchas** — which processes take over the terminal, how to actually stop them, and what a healthy startup looks like versus a hung one.
+4. **When the environment is in an unexpected state, give clean stop-and-start instructions.** Never suggest skipping past it or working around it. A confusing half-running environment produces false verification, which is worse than none.
+
+Note that reset-style scripts frequently leave generated artifacts staged — Phase 8 Pass 1 item 7 exists because of exactly this interaction.
+
+If local verification is blocked by environment issues, the user makes the call — but the default is: **no local verification, no PR.**
+
+### Size check: prefer several small PRs
+
+Before opening, ask whether this should be more than one PR. Split by behavior increment — each PR should be a coherent, reviewable step.
+
+- Prefer independent PRs. Stack them only when genuinely interdependent.
+- ~250 lines is already chunky by Betterment standards. Treat that as a prompt to reconsider, not a hard limit.
+- A large PR from a non-engineer author costs reviewers disproportionately more, because they can't assume the author caught the mechanical issues.
+
+If splitting makes sense, propose the split before opening anything.
 
 ### Creation protocol
 
@@ -400,7 +534,7 @@ The AI **creates the PR**, but only after explicit user confirmation. This is di
 
 Workflow:
 
-1. AI assembles the draft per the checklist below (title, description, reviewers, tour file if Full Path).
+1. AI assembles the draft per the checklist below (title, description, reviewers, tour file if Track 3).
 2. AI shows the full draft to the user — title, description (rendered), reviewer list, and the exact `gh pr create` invocation it intends to run.
 3. User reviews, edits whatever needs editing, and confirms by saying "open it" or equivalent.
 4. AI runs `gh pr create` with the confirmed content.
@@ -408,20 +542,20 @@ Workflow:
 
 If the user doesn't confirm — or edits the draft — loop back to step 2 before running `gh pr create`. The AI never opens a PR without explicit user confirmation.
 
-### By path
+### By track
 
-- **Fast Path:** title + one-line description. Skip the tour, skip the trade-offs list (nothing was traded off).
-- **Standard Path:** full description with what/why/how-to-test. PR tour optional.
-- **Full Path:** full description + HTML PR tour saved to `./.pm-pr-tour-<pr-number>.html`. Link the tour from the PR description.
+- **Track 1:** title + one-line description. Skip the tour, skip the trade-offs list (nothing was traded off).
+- **Track 2:** full description with what/why/how-to-test. PR tour optional.
+- **Track 3:** full description + HTML PR tour saved to `./.pm-pr-tour-<pr-number>.html`. Link the tour from the PR description.
 
 ### Draft checklist
 
-1. **Title and description accurately reflect the final change** — not the original intent if the work evolved. **If the diff changed after the initial draft (force-push, amend, file removal), re-check the description against the current diff and update any stale references.**
-2. **Description sections:** what changed, why (link ticket/intent), how to test, mobile/coordination impact.
-3. **Link the ticket** at the top of the description.
-4. **Update the ticket title** if the work diverged from the original ticket title.
-5. **Add reviewers** based on CODEOWNERS or area expertise.
-6. **Include the Pass 5 "documented trade-offs" list** in the PR description so reviewers see what was considered and consciously deferred.
+Betterment's PR authoring standards live in The Book (`the-book rules github/prs`, and the authoring/reviewing standards referenced from `the-book ways writing-software`) — follow those for title conventions, description content, and reviewability. Follow the repository's own PR template where one exists. The items below are the ones this workflow adds:
+
+1. **Title and description reflect the final change** — not the original intent if the work evolved. **If the diff changed after the initial draft (force-push, amend, file removal), re-check the description against the current diff and update any stale references.**
+2. **Put the ticket key in the branch name and the PR title, and link the ticket in the description.** That's what drives the tracker's automatic linking. Phase 14 verifies the linkage properly — don't hand-check it here.
+3. **Add reviewers** based on CODEOWNERS or area expertise.
+4. **Include the Pass 5 "documented trade-offs" list** so reviewers see what was considered and consciously deferred.
 
 If title/description drifts from reality during review, update them. Don't let them lie.
 
@@ -464,6 +598,7 @@ Any draft that includes a `gh pr comment` invocation is itself the violation —
 ### Drafting protocol
 
 - **Never sign drafts as AI or attribute them to AI.** The user is the author.
+- **Keep drafts high-level.** The user fields the follow-up questions, so a draft that commits to technical detail they can't defend creates a trap. Pitch at the altitude they can speak to.
 - If the user can't defend the draft in their own words, that's the signal to recommend involving an engineer — not to rewrite the draft.
 - When two reviewers disagree, don't pick a side. Draft a message that surfaces the conflict to both and asks them to align. Tag them by name. User posts.
 - For each comment, take an action: fix in code, draft an acknowledgment, draft a push-back with reasoning, or escalate to an engineer. Don't leave comments hanging — but the user always posts.
@@ -475,12 +610,15 @@ Any draft that includes a `gh pr comment` invocation is itself the violation —
 Default action: investigate before retrying. A retry that "works" doesn't mean the failure was flaky.
 
 - **Tests failing consistently and touching your changes** → investigate. Likely a regression you caused.
-- **Linter errors on your files** → fix.
+- **Linter or formatter errors on your files** → fix. If the formatter is what failed, Phase 8 Pass 1 item 6 was skipped.
+- **Failures in files you didn't mean to touch** → check the commit's file list (Pass 1 item 7). An unintended file riding along is a more common cause than a real regression.
 - **Schema drift / generated-file diffs** → regenerate via the codebase's documented command. Don't hand-edit.
 - **Flaky tests on a path unrelated to your changes** → flag to the user. Identify the owner. Recommend retry or escalation; don't try to fix.
 - **Pre-existing failures in main** → identify, mention, do not block on them.
 
 When flagging a flaky failure, include: test file path, owning team (from CODEOWNERS), and whether it was failing before this PR.
+
+The Book's position is that we don't merge with failing suites (`the-book ways testing-software`) — a red build is not a thing to route around.
 
 ---
 
@@ -492,9 +630,10 @@ Before recommending merge, confirm:
 2. All required reviewers approved.
 3. All CI checks green (or known-flaky failures explicitly flagged).
 4. Title and description still accurately describe the final state.
-5. Linked ticket title still accurate.
+5. Linked ticket title still accurate, and the ticket ↔ PR links still resolve both ways.
 6. No `(blocking)` comments unresolved.
 7. No scope creep that hasn't been discussed with reviewers.
+8. The branch still contains only this task's work.
 
 If anything is off, surface to the user before they merge.
 
@@ -504,18 +643,20 @@ If anything is off, surface to the user before they merge.
 
 After PR is merged (or after a review cycle that surfaced significant comments), spend 10 minutes upgrading this skill. The skill should compound: every PR makes the next one cheaper.
 
-**By path:**
-- **Fast Path:** skip — unless something surprised you (a Fast Path PR drawing significant review comments is itself a signal Phase 1 misrouted; that's worth a post-mortem).
-- **Standard Path:** run if any substantive comments came up.
-- **Full Path:** mandatory.
+**By track:**
+- **Track 1:** skip — unless something surprised you. A Track 1 PR drawing significant review comments is itself a signal Phase 1 misrouted, and that's worth a post-mortem.
+- **Track 2:** run if any substantive comments came up.
+- **Track 3:** mandatory.
 
 **Process:**
 
 1. **For each comment that surprised you**, ask: *"What in this skill made me miss this?"* Identify the gap — a missing rule, a missing anti-pattern, a missing reviewer concern, a phase that should have caught it.
-2. **For each reviewer who left substantive comments**, propose updates to `references/reviewer-profiles.md`. Add specific concerns they raised.
-3. **For each anti-pattern that appeared in your diff**, propose adding it to Phase 7's anti-pattern list if not already there.
-4. **For each "I should have known to read X" moment**, propose noting X for Phase 4's pre-flight in this area.
-5. **Show the user the proposed diff and the commit message that will be used. Get explicit confirmation.** On approval:
+2. **Check whether The Book already covers it.** If it does, the fix is a citation, not a new rule — and if this skill was restating something The Book now says better, delete the restatement. This skill should shrink whenever The Book grows.
+3. **For each reviewer who left substantive comments**, propose updates to `references/reviewer-profiles.md`. Add specific concerns they raised.
+4. **For each anti-pattern that appeared in your diff**, propose adding it to Phase 7's anti-pattern list if not already there.
+5. **For each "I should have known to read X" moment**, propose noting X for Phase 4's pre-flight in this area.
+6. **If the track was wrong**, propose a routing fix — a new hard override, or a change to the three questions. Misroutes are the most valuable post-mortem finding, because they compound across every future task.
+7. **Show the user the proposed diff and the commit message that will be used. Get explicit confirmation.** On approval:
    - Apply the edit to `SKILL.md` and/or `references/*.md`
    - `git add` the changed files
    - `git commit` with a message describing what was learned and why the change was made (format: *"Phase 13: <one-line summary>"* with a body explaining the trigger)
@@ -529,6 +670,80 @@ After PR is merged (or after a review cycle that surfaced significant comments),
 
 ---
 
+## Phase 14: Ticket reconciliation
+
+The last step on every track, including Track 1. Its job is to leave the ticket in a state that accurately reflects reality: described correctly, owned by the user, in an active state, in the current sprint, and connected to the PR.
+
+Run it after the PR is open. It's idempotent — safe to re-run any time the work or the ticket moves.
+
+### Step 1 — Find the ticket
+
+Look in this order:
+
+1. A ticket the user named explicitly in the conversation.
+2. A ticket key in the current branch name — keys look like `[A-Z][A-Z0-9]+-\d+` (e.g. a branch `ix-2174-custom-portfolio-label` implies `IX-2174`).
+3. A ticket key in the PR title or description.
+
+If two sources disagree, stop and ask which is right. Never guess between two candidate tickets.
+
+### Step 2 — If no ticket exists, create one
+
+Creating a ticket is an outward-facing action in a shared tracker, so **draft it, show the user, and create only on explicit confirmation.**
+
+Draft with:
+
+- **Project** — infer from sibling tickets in the same area or from the branch prefix. If it can't be inferred confidently, ask; don't default to a random project.
+- **Issue type** — `Bug` when fixing incorrect existing behavior, `Task`/`Story` when adding something. Check the project's available types rather than assuming.
+- **Summary** — one line, describing the user-facing outcome, not the implementation.
+- **Description** — match the shape the project already uses. Where a bug-report convention exists (an Observed / Expected structure is common), follow it. Include what the user sees, what they should see, and the affected surface.
+- **Assignee** — the current user (`atlassianUserInfo` → `account_id`).
+
+Then continue through the checks below as if the ticket had existed.
+
+### Step 3 — Reconcile the four attributes
+
+Check each, collect the drift, and present it as one batch before writing anything.
+
+**a. Description is accurate.** Compare it against what actually shipped. Work often diverges from the original report — a bug turns out to have a different cause, or the fix covers more or less than described. If it drifted, propose replacement text and show what changes. Never overwrite a description silently; the reporter's original account of the problem has value.
+
+**b. Assigned to the user.** Compare `assignee.accountId` against the current user's account id. If someone else is assigned, don't reassign — surface it, because it may be deliberate.
+
+**c. Status is active — In Progress or in review.** Do **not** hardcode status names; they differ per board. Read the real options with `getTransitionsForJiraIssue` and pick by `statusCategory`:
+
+- Target a transition whose destination `statusCategory.key` is `indeterminate` (Jira's "In Progress" category).
+- Among those, prefer by name in this order: `In Review` → `Code Review` → `In Progress`. Some boards have no review status at all — the Investing Enablement board, for example, offers only `In Progress` and `On Hold/Blocked` in that category. Never select a blocked/hold status as the target.
+- **Never transition a ticket to Done.** Closing a ticket is the team's call, made against their own definition of done, and often driven by board automation. This phase moves tickets *into* flight, never out.
+
+If the ticket is already `Done` while work is still in flight, that's drift worth reporting — but flag it and let the user decide rather than reopening it.
+
+**d. In the current active sprint.** Verify with JQL rather than the Agile API — no board id needed:
+
+```
+key = <TICKET> AND sprint in openSprints()
+```
+
+A result means it's in an open sprint. An empty result means it isn't. If it isn't, adding it requires writing the board's sprint field, which may be outside the available API scopes — attempt it, and if it fails, say so plainly and hand the user the one-click fix rather than reporting success.
+
+### Step 4 — Verify PR linkage the way a human sees it
+
+**The remote-issue-links API is not a reliable signal here.** It returns an empty list for tickets that demonstrably have linked PRs, because the GitHub integration surfaces them in the ticket's development panel rather than as remote links. An empty result is not evidence of a missing link, and chasing it produces phantom work.
+
+Verify the mechanism that actually drives linking instead:
+
+1. The ticket key appears in the branch name — `git branch --show-current`.
+2. The ticket key appears in the PR title — `gh pr view --json title,body`.
+3. The PR description links the ticket.
+
+If all three hold, the linkage is in place. If the key is missing from the PR title, fix the title. If it's missing from the branch name on an already-open PR, don't rename the branch — add the key to the title and description instead, and note it for next time.
+
+### Step 5 — Report, confirm, then write
+
+Present the findings as a short table: attribute, current state, desired state, proposed action. Batch every mutation behind a single confirmation so the user approves once, not five times.
+
+On approval, apply the changes and re-read the ticket to confirm each one landed. Report what actually changed — if a write failed (permissions, missing scope, a transition the workflow doesn't allow from the current status), say which one and why. Don't report success for a write you didn't verify.
+
+---
+
 ## References
 
 Detailed reference material lives under `references/`. Read on demand:
@@ -536,3 +751,5 @@ Detailed reference material lives under `references/`. Read on demand:
 - **`references/reviewer-profiles.md`** — what specific reviewers care about. Used by Phase 8 Pass 3. Grows via Phase 13.
 - **`references/prompt-techniques.md`** — toolkit for prompting AIs (role assignment, few-shot, XML tags, grounding anchors, chain-of-thought). Used by Phase 2 and Phase 8 Pass 4.
 - **`references/output-format-catalog.md`** — when to use HTML vs markdown vs XML; pattern library; file naming convention. Consulted by every phase that produces output.
+
+Betterment's engineering standards are **not** duplicated here — they come from The Book (`the-book`, or https://the-book.betterment.io). See "Standards: The Book is the source of truth" above.
