@@ -53,6 +53,11 @@ Or invoke individual phases on demand:
 - *"post-mortem"* → Phase 13 (improve the skill)
 - *"reconcile the ticket"* → Phase 14 (Jira accuracy, assignment, sprint, PR linkage)
 
+Plus two interrupts, callable from anywhere:
+
+- *"capture an issue"* → file a follow-up ticket for something spotted mid-task, without derailing the current work
+- *"explain this to me"* → pause development and teach the concept at three levels, instead of escalating past it
+
 See `SKILL.md` for the full invocation map.
 
 ## What's in the box
@@ -89,7 +94,7 @@ The skill is designed to compound: every shared post-mortem helps the next user 
 
 Developed by Andy Jobe with workflow concepts borrowed from:
 
-- Zevi Arnovitz's *"How a Meta PM ships products without ever writing code"* (multi-pass review, post-mortem upgrade loop)
+- Zevi Arnovitz's *"How a Meta PM ships products without ever writing code"* and [AI Development Workflow](https://shorthaired-billboard-f9a.notion.site/Zevi-s-AI-Development-Workflow-2c86baffbc90810fa63bd0ee8ecffce9) (multi-pass review, post-mortem upgrade loop, peer-review verification, status-tracked plan files, issue capture, learning mode)
 - [nidhinjs/prompt-master](https://github.com/nidhinjs/prompt-master) (9 intent dimensions, prompt techniques)
 - [thariqs.github.io/html-effectiveness](https://thariqs.github.io/html-effectiveness/) (output format catalog)
 

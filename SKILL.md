@@ -34,6 +34,11 @@ Or invoke individual phases on demand:
 - "post-mortem" → Phase 13
 - "reconcile the ticket" → Phase 14
 
+Two interrupts, callable from anywhere and outside the phase order:
+
+- "capture an issue" / "file a follow-up" → file a ticket for something spotted mid-task
+- "learning opportunity" / "explain this to me" → pause and teach, instead of escalating
+
 ## Output format
 
 Each phase notes a default format, but the AI should pick the format from `references/output-format-catalog.md` that best matches the content's shape. HTML for spatial/comparative/long-form content. Markdown for linear or ephemeral content. XML for AI-to-AI handoffs.
@@ -271,7 +276,7 @@ Establish what's actually being asked.
 **If Phase 2 was skipped:** do the full intake from scratch.
 
 1. **Restate the ask in one sentence.** If you can't, ask the user to clarify before proceeding.
-2. **Ask any questions you have** (skip if Phase 2 already covered them). Don't assume. If anything is ambiguous — the desired behavior, affected users, which entity/account/account-type, what "done" looks like, whether existing similar features should be matched — surface it now.
+2. **Ask any questions you have** (skip if Phase 2 already covered them). Don't assume. If anything is ambiguous — the desired behavior, affected users, which entity/account/account-type, what "done" looks like, whether existing similar features should be matched — surface it now. **Assume no requirement or scope beyond what was explicitly described.** Inferred scope is the most common source of a diff the user didn't ask for.
 3. **Identify the user-facing outcome.** What changes for the end user when this ships?
 4. **Find the smallest possible change that achieves it.** Default to the minimal viable change. Larger scope = more risk.
 5. **Locate the ticket (if any).** Read it fully. Acceptance criteria often reveal scope-creep risk.
@@ -347,6 +352,31 @@ If this scoring contradicts Phase 1's initial routing, the more cautious track w
 
 Before building, write down the approach.
 
+**Track 2 and Track 3 write the plan to a file, not just to chat.** A plan that lives only in conversation dies with the session — and long tasks outlive their sessions. Save it to `./.pm-plan.md` with per-step status and an overall progress figure at the top:
+
+```markdown
+# <Feature> implementation plan
+
+**Overall progress:** `0%`
+
+## TL;DR
+What we're building and why, in two sentences.
+
+## Decisions made
+- <choice> — <why>
+
+## Tasks
+- [ ] 🟥 **Step 1: <name>**
+  - [ ] 🟥 <subtask>
+- [ ] 🟥 **Step 2: <name>**
+```
+
+Status markers: 🟥 to do, 🟨 in progress, 🟩 done. Phase 7 updates the file as each step lands — the file is the source of truth for where the work stands, not the chat history.
+
+Two things this buys. **Recovery:** when context gets long or a session ends, the next session starts from the plan file alone and doesn't need the transcript. **Scope control:** a written step list makes added scope visible, because new work has to be added to the file to be tracked.
+
+Keep the plan minimal. No steps that weren't discussed, no speculative structure, no complexity beyond what was clarified. Track 1 skips this entirely — a six-step change doesn't need a tracking document.
+
 1. **State the approach in 2–3 bullets.** What you'll change, where, and why.
 2. **List unknowns and produce questions for any that need engineer input.** Unknowns fall into two buckets:
    - Things the AI can investigate by reading code or docs — investigate first.
@@ -370,6 +400,8 @@ Before building, write down the approach.
 **By track:** the same rules apply across all tracks — Track 1 doesn't get to skip the execution rules just because the change is small. Anti-patterns are still anti-patterns at any size.
 
 Apply these rules continuously, not just at the start.
+
+**Track 2 / Track 3: update `./.pm-plan.md` as each step lands** — flip the status marker and refresh the progress figure. Do it as you go, not in a batch at the end; the file's value is that it's accurate at any moment the session might be interrupted.
 
 ### Execution rules
 
@@ -484,6 +516,8 @@ Invoke an independent reviewer with no context from this session. Two options:
 - Spawn a general-purpose sub-agent with the diff and the original task description only, prompted: *"Review this diff for correctness bugs and code quality issues. You have no context on prior discussion. Be specific and quote line numbers."*
 
 The value of fresh-eyes review is bias removal — the original-context reviewer (mid-task) has invested in the current approach; the fresh-eyes reviewer hasn't.
+
+**Verify each finding; don't accept them on authority.** The fresh-eyes reviewer has *less* context than you — it hasn't read the ticket, the prior discussion, or the surrounding conventions. Some of its findings will describe problems that are already handled elsewhere, or that misread the architecture. For each one, check the actual code and classify it: confirmed, or invalid with a stated reason. Carry both lists into Pass 5 — the invalid ones are worth keeping, because the same misreading often resurfaces in human review and you'll already have the answer.
 
 ### Pass 5 — Synthesize and decide
 
@@ -741,6 +775,45 @@ If all three hold, the linkage is in place. If the key is missing from the PR ti
 Present the findings as a short table: attribute, current state, desired state, proposed action. Batch every mutation behind a single confirmation so the user approves once, not five times.
 
 On approval, apply the changes and re-read the ticket to confirm each one landed. Report what actually changed — if a write failed (permissions, missing scope, a transition the workflow doesn't allow from the current status), say which one and why. Don't report success for a write you didn't verify.
+
+---
+
+## Interrupts
+
+Two commands that aren't workflow steps. They don't belong to a phase and they don't run in order — you reach for them mid-flow, from anywhere, and then return to whatever you were doing. Both exist because the linear workflow has no good answer for the situation they address.
+
+### Capture an issue — "file this for later"
+
+*Invoke with: "capture an issue" or "file a follow-up."*
+
+Phase 7's anti-patterns forbid pulling adjacent problems into the current PR and say to file a follow-up ticket instead. This is how that ticket gets filed, without derailing the work in progress.
+
+The point is speed. The user is mid-task and wants this out of their head in under two minutes.
+
+1. **Ask at most 2–3 targeted questions in a single message.** What's the issue, current versus desired behavior, and type/priority if not obvious from the description. One round trip, not a back-and-forth. Skip anything already clear.
+2. **Search only when it helps.** Grep for the relevant files to attach context — three at most, the most relevant only. Don't research best practices for a straightforward bug.
+3. **Draft the ticket** using Phase 14 Step 2's creation rules — project inference, issue type, the project's own description convention, assignee.
+4. **Create it on confirmation**, report the key, and return to the interrupted work.
+
+Default to normal priority and medium effort; ask only if genuinely unclear. Bullet points, not paragraphs.
+
+### Learning mode — "explain this to me"
+
+*Invoke with: "learning opportunity", "explain this to me", or "teach me this."*
+
+Pause development entirely. This is not a detour from the work — it's the thing that makes the next task cheaper, and it's the missing half of Phase 10's rule about not defending what you don't understand. When the user hits something they can't follow, the workflow's only current answer is "escalate to an engineer." This is the other option: understand it.
+
+**Audience.** A product manager who ships production code with AI assistance. Solid fundamentals, reads code comfortably, not a senior engineer. Don't oversimplify and don't lecture. Peer-to-peer.
+
+**Structure — three levels, and let each one land before moving on.** Don't dump all three at once; the user says when to go deeper.
+
+1. **Core concept** — what this is, the problem it solves, when you'd reach for it, how it fits the wider system.
+2. **How it works** — the mechanics underneath, the trade-offs and why this approach was chosen, the failure modes to watch for, how to debug it when it breaks.
+3. **Deep dive** — implementation details that affect production behavior, scaling and performance implications, the alternatives and when they'd win, the senior-engineer read on it.
+
+**Ground every level in the code actually in front of the user.** Generic explanations are available anywhere; the value here is that it's *this* function, *this* schema, *this* PR. Favor concepts that compound over academic completeness, and name genuine difficulty honestly — "this is tricky because…" beats false simplicity.
+
+Learning mode is also the right response when the user is about to accept a reviewer's comment they don't understand. Understanding the comment is a better outcome than applying it on faith.
 
 ---
 

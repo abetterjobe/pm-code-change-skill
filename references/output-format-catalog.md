@@ -32,12 +32,13 @@ For each output the skill produces, pick the format that matches the content's s
 Save to the project root with prefix `.pm-` and phase suffix:
 
 - `.pm-brief.html` — Phase 2 task brief
-- `.pm-plan.html` — Phase 6 plan (when alternatives exist)
+- `.pm-plan.md` — Phase 6 execution plan with status tracking (markdown, because Phase 7 edits it continuously)
+- `.pm-plan.html` — Phase 6 side-by-side comparison, when alternatives need evaluating
 - `.pm-review-<short-sha>.html` — Phase 8 review
 - `.pm-pr-tour-<pr-number>.html` — Phase 9 PR tour
 - `.pm-postmortem-<pr-number>.html` — Phase 13 post-mortem
 
-Gitignore `.pm-*.html` if not already.
+Gitignore `.pm-*` if not already — the plan file is markdown, so an `.html`-only pattern would leave it committable.
 
 ## When in doubt
 
