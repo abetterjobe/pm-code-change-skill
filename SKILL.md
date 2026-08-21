@@ -389,7 +389,9 @@ Keep the plan minimal. No steps that weren't discussed, no speculative structure
 
    Categories to draw from: **placement, contract shape, process (design review / ADR), coordination, conventions, risk.**
 
-3. **Decide based on the track:**
+3. **Attack the plan before committing to it.** Track 2 and 3 only. Take the approach from step 1 and try to break it: which assumption, if wrong, sinks it? What's the single biggest problem? Then steelman it and give an actual verdict. Phase 8 Pass 2 does this to the code, which is the expensive moment to discover a bad approach; here it's still cheap. Use the "Attack, then steelman" pattern in `references/prompt-techniques.md` — and if the attack surfaces something real, say so plainly rather than softening it. Deferring to the user on a plan you can see is wrong is the most costly way to be agreeable.
+
+4. **Decide based on the track:**
    - **Track 2** — the AI reads the relevant area docs itself, then proceeds.
    - **Track 3** — share approach, unknowns, and engineer questions with the user. **Alignment with an engineer happens before code, not after.** If engineer questions exist, state explicitly: *"Once you have answers, share them and I can resume."*
 
@@ -466,8 +468,9 @@ The minimum gate, and the only gate on Track 1. Everything here is checkable wit
 3. No commented-out code, no debug prints, no TODO markers added in this diff.
 4. Diff is minimal — anything not serving the original task is cut.
 5. Did scope expand beyond the original ask? If yes, surface to the user — ask whether to split before continuing.
-6. **Run the formatter, not just the linter.** CI lint jobs commonly run both, and a formatter-only failure turns CI red after a clean-looking local run. Check what the repo's lint job actually invokes and run all of it. Where the repo provides a combined pre-flight script for changed files, prefer it.
-7. **Read the commit's file list before pushing.** Not the diff — the file list:
+6. **Update the docs this change invalidates.** Track 2 / Track 3. Check whether the diff makes any nearby README, runbook, ADR, or code sample wrong — stale docs adjacent to a change are a predictable review comment. **Verify against the code, not against the docs:** where a doc and the implementation disagree, the implementation is the truth and the doc is the bug. Never update one doc by copying an assertion out of another. If a change introduces a new pattern, Phase 4 already flagged whether an ADR is required.
+7. **Run the formatter, not just the linter.** CI lint jobs commonly run both, and a formatter-only failure turns CI red after a clean-looking local run. Check what the repo's lint job actually invokes and run all of it. Where the repo provides a combined pre-flight script for changed files, prefer it.
+8. **Read the commit's file list before pushing.** Not the diff — the file list:
 
    ```bash
    git show --stat --oneline HEAD
@@ -548,7 +551,7 @@ General shape, adapted to whatever the repo actually uses:
 3. **Know the interactive-tool gotchas** — which processes take over the terminal, how to actually stop them, and what a healthy startup looks like versus a hung one.
 4. **When the environment is in an unexpected state, give clean stop-and-start instructions.** Never suggest skipping past it or working around it. A confusing half-running environment produces false verification, which is worse than none.
 
-Note that reset-style scripts frequently leave generated artifacts staged — Phase 8 Pass 1 item 7 exists because of exactly this interaction.
+Note that reset-style scripts frequently leave generated artifacts staged — Phase 8 Pass 1 item 8 exists because of exactly this interaction.
 
 If local verification is blocked by environment issues, the user makes the call — but the default is: **no local verification, no PR.**
 
@@ -632,6 +635,7 @@ Any draft that includes a `gh pr comment` invocation is itself the violation —
 ### Drafting protocol
 
 - **Never sign drafts as AI or attribute them to AI.** The user is the author.
+- **Match the user's actual writing voice, from samples.** "Write it in my voice" without examples produces a polished corporate register — which is exactly what reads as automated, whatever the signature says. Pull 3–5 of the user's own comments from prior PRs or threads on similar topics, analyze the patterns, and match them. See "Style cloning" in `references/prompt-techniques.md`.
 - **Keep drafts high-level.** The user fields the follow-up questions, so a draft that commits to technical detail they can't defend creates a trap. Pitch at the altitude they can speak to.
 - If the user can't defend the draft in their own words, that's the signal to recommend involving an engineer — not to rewrite the draft.
 - When two reviewers disagree, don't pick a side. Draft a message that surfaces the conflict to both and asks them to align. Tag them by name. User posts.
@@ -644,8 +648,8 @@ Any draft that includes a `gh pr comment` invocation is itself the violation —
 Default action: investigate before retrying. A retry that "works" doesn't mean the failure was flaky.
 
 - **Tests failing consistently and touching your changes** → investigate. Likely a regression you caused.
-- **Linter or formatter errors on your files** → fix. If the formatter is what failed, Phase 8 Pass 1 item 6 was skipped.
-- **Failures in files you didn't mean to touch** → check the commit's file list (Pass 1 item 7). An unintended file riding along is a more common cause than a real regression.
+- **Linter or formatter errors on your files** → fix. If the formatter is what failed, Phase 8 Pass 1 item 7 was skipped.
+- **Failures in files you didn't mean to touch** → check the commit's file list (Pass 1 item 8). An unintended file riding along is a more common cause than a real regression.
 - **Schema drift / generated-file diffs** → regenerate via the codebase's documented command. Don't hand-edit.
 - **Flaky tests on a path unrelated to your changes** → flag to the user. Identify the owner. Recommend retry or escalation; don't try to fix.
 - **Pre-existing failures in main** → identify, mention, do not block on them.
@@ -813,6 +817,8 @@ Pause development entirely. This is not a detour from the work — it's the thin
 
 **Ground every level in the code actually in front of the user.** Generic explanations are available anywhere; the value here is that it's *this* function, *this* schema, *this* PR. Favor concepts that compound over academic completeness, and name genuine difficulty honestly — "this is tricky because…" beats false simplicity.
 
+**The exit condition is the user explaining it back, not you deciding it was clear.** After each level, check whether it actually landed, and keep going until they can restate it in their own words. An explanation that reuses the vocabulary of the thing being explained leaves them with a definition and no comprehension. See "Explain-it-back" in `references/prompt-techniques.md`.
+
 Learning mode is also the right response when the user is about to accept a reviewer's comment they don't understand. Understanding the comment is a better outcome than applying it on faith.
 
 ---
@@ -822,7 +828,7 @@ Learning mode is also the right response when the user is about to accept a revi
 Detailed reference material lives under `references/`. Read on demand:
 
 - **`references/reviewer-profiles.md`** — what specific reviewers care about. Used by Phase 8 Pass 3. Grows via Phase 13.
-- **`references/prompt-techniques.md`** — toolkit for prompting AIs (role assignment, few-shot, XML tags, grounding anchors, chain-of-thought). Used by Phase 2 and Phase 8 Pass 4.
+- **`references/prompt-techniques.md`** — toolkit for prompting AIs (role assignment, few-shot, XML tags, grounding anchors, chain-of-thought, attack-then-steelman, style cloning, explain-it-back). Used by Phase 2, Phase 6, Phase 8 Pass 4, Phase 10, and learning mode.
 - **`references/output-format-catalog.md`** — when to use HTML vs markdown vs XML; pattern library; file naming convention. Consulted by every phase that produces output.
 
 Betterment's engineering standards are **not** duplicated here — they come from The Book (`the-book`, or https://the-book.betterment.io). See "Standards: The Book is the source of truth" above.
