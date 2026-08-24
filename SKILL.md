@@ -96,7 +96,15 @@ If The Book has no guidance on something, say so rather than inventing a standar
 
 ## Phase 0: Workspace and branch setup
 
-Run this before anything else, including routing. It is cheap, it is mechanical, and skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
+Run this before anything else, including routing. Skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
+
+**It's one action, plus three standing rules.** The action is a single command:
+
+```bash
+git fetch origin && git checkout -b <descriptive-branch-name> origin/main && git status --short
+```
+
+That's the whole of Phase 0 in practice. The sections below are *conditions that always hold*, not additional steps to work through — read them once, then apply them without ceremony. Don't turn four standing rules into a four-step checklist on a copy change.
 
 ### New task means new branch
 
@@ -183,7 +191,7 @@ The last one deserves care in this codebase. Changing the *label* above a dollar
 
 ### Track → phase map
 
-Track 1 is written out in full below and does not reference phase numbers — that's deliberate, so the light path reads as its own short workflow rather than a list of exemptions.
+**The table below is for Track 2 and Track 3 only.** Track 1 is written out in full underneath it, self-contained, with its own shortened versions of the shared phases — no pointers out, because pointers out are how the light path got heavy.
 
 | Phase | Track 2 — Guided | Track 3 — Partnered |
 |---|---|---|
@@ -203,15 +211,40 @@ Track 1 is written out in full below and does not reference phase numbers — th
 
 ### Track 1 — Direct: the whole workflow
 
-Six steps. Nothing else runs — no complexity scoring, no reviewer personas, no fresh-eyes pass, no post-mortem, no HTML artifacts.
+**This section is the entire workflow for Track 1. Stop reading the rest of this file.**
 
-1. **Restate the ask in one line, and name the files.** One search for the string or component being changed. If a precedent exists for how this kind of change is done nearby, follow it. If the search turns up something unexpected — the string lives in five places, or the component is shared more widely than expected — stop and escalate to Track 2.
-2. **Confirm you're on a fresh branch off `origin/main`** (Phase 0).
-3. **Make the change.** The execution rules in Phase 7 still apply. A small change doesn't get to violate a standard.
-4. **Verify.** Run the targeted checks for the files touched, and see the change working locally (Phase 9's local verification applies to every track, including this one).
-5. **Check the commit's file list before pushing** — see Phase 8, Pass 1. This is where Track 1 changes most often go wrong: the diff is two lines, and three unrelated files ride along with it.
-6. **Open the PR** with a one-line description, after explicit user confirmation (Phase 9's creation protocol).
-7. **Reconcile the ticket** (Phase 14). This runs on every track — a two-line copy change still needs its ticket assigned, in the right state, in the sprint, and linked to the PR.
+That instruction is the point. Everything below Phase 1 is written for Track 2 and Track 3 — reading it, or following pointers into it, is how a two-line change ends up carrying thirty-odd steps. Track 1 has its own abbreviated versions of the shared phases, inlined here. Use these, not the full ones.
+
+Most tickets land here. This should feel like a normal small edit, not a process.
+
+1. **Say what changes in one line, and find it.** One search for the string or component. Follow whatever pattern the neighbours use. If the search surprises you — it's in five places, the component is shared more widely than expected — stop and escalate to Track 2.
+
+2. **Branch and glance at what's already dirty.** One command, not Phase 0's five checks:
+
+   ```bash
+   git fetch origin && git checkout -b <name> origin/main && git status --short
+   ```
+
+   Anything already modified isn't yours. Note it for step 4.
+
+3. **Make the change.** Phase 7's execution rules and The Book's standards still apply — small changes don't get to violate a standard. Nothing else from Phase 7 applies.
+
+4. **Check four things, then push.** This is Track 1's whole review — not Pass 1's eight items, and none of Passes 2–5:
+
+   - Targeted tests for the touched files pass
+   - The formatter ran, not just the linter
+   - The diff contains nothing beyond the ask
+   - `git show --stat --oneline HEAD` lists only files you meant to touch
+
+   The last one is where Track 1 actually fails. The diff is two lines and three unrelated files ride along.
+
+5. **See it working locally.** Non-negotiable on every track. But if the environment is already up, this is a look at the screen — not Phase 9's four-step reset-and-restart recipe. Reach for that only if the environment is down or behaving oddly.
+
+6. **Open the PR.** Title, a one-line description, the ticket key in the title. Show it, get a yes, run `gh pr create`. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
+
+7. **Two ticket checks.** Not Phase 14's five: is the ticket key in the branch and PR title, and is the ticket assigned to you and in the current sprint. Skip the description review — a label change doesn't invalidate the original report. If no ticket exists at all, then run `/capture-issue`.
+
+Roughly ten steps end to end. If it's taking meaningfully more than that, the routing was probably wrong.
 
 If a Track 1 change draws substantive review comments, that's a signal Phase 1 misrouted — worth a post-mortem even though Track 1 normally skips it.
 
@@ -437,7 +470,7 @@ Specific failure modes from prior work. Catch these proactively:
 This is the highest-leverage phase. Most engineer-time-wasted on past PRs has been predictable comments that a robust self-review would have caught. The goal here is to surface those comments before a human sees them.
 
 **By track:**
-- **Track 1:** Pass 1 only. Markdown output, in-chat. Skip everything else.
+- **Track 1:** does not come here. Its four-item check lives in the Track 1 workflow under Phase 1.
 - **Track 2:** Passes 1, 2, 3 (1–2 personas), and 5. Skip Pass 4 unless the change is substantial (≥5 files, new public API surface, or new business-logic class). HTML output only if >3 findings.
 - **Track 3:** All 5 passes + UI pass (if any UI changed). HTML output mandatory.
 
@@ -445,7 +478,7 @@ Run the included passes in order. Don't skip to Phase 9 until the track's final 
 
 ### Pass 1 — Mechanical checklist
 
-The minimum gate, and the only gate on Track 1. Everything here is checkable without judgment, which is exactly why it gets skipped and exactly why it bites.
+The minimum gate for Track 2 and Track 3. Everything here is checkable without judgment, which is exactly why it gets skipped and exactly why it bites. (Track 1 runs a four-item subset, inlined in its own workflow — don't send it here.)
 
 1. Tests written and passing for new behavior.
 2. Schema/generated files regenerated (not hand-edited).
@@ -479,7 +512,9 @@ Only proceed to Phase 9 when every Pass 1 item is ✅. For Track 2 / Track 3, ev
 
 ### Prerequisite: local verification
 
-**Applies to every track, including Track 1.** Before assembling the PR draft, confirm the user has seen the change working in their local environment. The AI must not propose opening a PR until the user has confirmed local verification.
+**The gate applies to every track. This procedure does not.** Before assembling the PR draft, confirm the user has seen the change working in their local environment. The AI must not propose opening a PR until the user has confirmed local verification.
+
+On Track 1, that confirmation is usually just a look at an already-running environment. The recipe below is for when the environment is down or misbehaving — don't run a database reset to verify a copy change.
 
 This gate is only useful if the AI can actually help the user clear it. Know the repo's local startup path cold — the PM is often running the environment only in these sessions, so vague instructions strand them.
 
@@ -520,7 +555,7 @@ If the user doesn't confirm — or edits the draft — loop back to step 2 befor
 
 ### By track
 
-- **Track 1:** title + one-line description. Skip the tour, skip the trade-offs list (nothing was traded off).
+- **Track 1:** handled in the Track 1 workflow — title, one-line description, confirm, create. Nothing else on this page applies.
 - **Track 2:** full description with what/why/how-to-test. PR tour optional.
 - **Track 3:** full description + HTML PR tour saved to `./.pm-pr-tour-<pr-number>.html`. Link the tour from the PR description.
 
@@ -630,7 +665,9 @@ After PR is merged (or after a review cycle that surfaced significant comments),
 
 ## Phase 14: Ticket reconciliation
 
-The last step on every track, including Track 1. Its job is to leave the ticket in a state that accurately reflects reality: described correctly, owned by the user, in an active state, in the current sprint, and connected to the PR.
+The last step on Track 2 and Track 3. Its job is to leave the ticket in a state that accurately reflects reality: described correctly, owned by the user, in an active state, in the current sprint, and connected to the PR.
+
+**Track 1 runs two checks instead of five** — see its own workflow. A label change doesn't invalidate the ticket's description, so reviewing it is wasted motion.
 
 Run it after the PR is open. It's idempotent — safe to re-run any time the work or the ticket moves.
 
