@@ -34,10 +34,25 @@ Or invoke individual phases on demand:
 - "post-mortem" → Phase 13
 - "reconcile the ticket" → Phase 14
 
-Two interrupts, callable from anywhere and outside the phase order:
+### Real slash commands
 
-- "capture an issue" / "file a follow-up" → file a ticket for something spotted mid-task
-- "learning opportunity" / "explain this to me" → pause and teach, instead of escalating
+Four steps are also installed as slash commands, because they stand alone — they take an input, produce an output, and need no workflow history. These work cold, without the skill loaded:
+
+| Command | What it does |
+|---|---|
+| `/explain-this` | Learning mode — teach a concept at three levels until you can explain it back |
+| `/capture-issue` | File a follow-up ticket for something spotted mid-task |
+| `/reconcile-ticket` | Phase 14 against the current branch or a named ticket |
+| `/pre-flight` | Phase 4 investigation of a code area |
+
+Canonical files live in this skill's `commands/` directory and are symlinked into `~/.claude/commands/`, so there's one definition and two entry points. Editing either edits both.
+
+The rest of the workflow deliberately has no command form. Routing, the synthesis pass, the post-mortem, and every gate depend on knowing what came before — a standalone `/route` would have nothing to route, and "no PR before local verification" only works if something tracked that verification happened. The sequence is the product; a menu of fourteen commands would require knowing which to pick and in what order, which is exactly the knowledge this skill exists to supply.
+
+The two interrupts are also callable conversationally, from anywhere and outside the phase order:
+
+- "capture an issue" / "file a follow-up"
+- "learning opportunity" / "explain this to me"
 
 ## Output format
 
@@ -230,40 +245,9 @@ Before Phase 3, sharpen the ask itself. The cost of a fuzzy initial ask compound
 - The user is mid-task continuing prior work.
 - Track 1.
 
-**Process:**
+**Read `references/task-brief.md` and follow it.** In brief: restate the ask in one sentence, score the 9 dimensions (task, input, output, constraints, context, audience, memory, success criteria, examples) as clear / implicit / missing, ask **at most 3** questions targeting the worst gaps, then produce a Task Brief as XML with every dimension filled in and inferences marked as such. Save it to `./.pm-brief.html` for the user to review before Phase 3.
 
-1. **Restate the ask in one sentence.**
-2. **Score the 9 dimensions** as ✅ clear / ⚠️ implicit / ❌ missing:
-   - **Task** — what action, on what
-   - **Input** — what data/state is given
-   - **Output** — what changes / what artifact is produced
-   - **Constraints** — what cannot change; what must be matched
-   - **Context** — surrounding system, related features, ticket
-   - **Audience** — who sees the result (end user, internal, engineers)
-   - **Memory** — relevant prior decisions, past PRs, conventions
-   - **Success criteria** — how we know we're done
-   - **Examples** — similar features that set precedent
-3. **Pick the 3 most critical ❌ or ⚠️ dimensions and ask one question each.** Max 3. The forcing function matters — open-ended Q&A wastes the user's time.
-4. **Produce a Task Brief** with all 9 dimensions filled in (best inference for any unanswered, marked as such).
-5. **Hand off to Phase 3**, which now operates against the Brief instead of the raw ask.
-
-**Default output format:** XML (consumed by the AI in Phase 3). See `references/output-format-catalog.md` for when to additionally render the Brief as HTML for the user.
-
-```
-<task-brief>
-  <task>...</task>
-  <input>...</input>
-  <output>...</output>
-  <constraints>...</constraints>
-  <context>...</context>
-  <audience>...</audience>
-  <memory>...</memory>
-  <success-criteria>...</success-criteria>
-  <examples>...</examples>
-</task-brief>
-```
-
-For Track 2 / Track 3 tasks, save the Brief to `./.pm-brief.html` so the user can review it before Phase 3 starts.
+The three-question cap is deliberate — it forces prioritization instead of spending the user's time on open-ended Q&A.
 
 ---
 
@@ -478,59 +462,14 @@ The minimum gate, and the only gate on Track 1. Everything here is checkable wit
 
    Every file in it must be one you meant to touch. This is the single most repeated mechanical failure in this skill's history: generated or reset artifacts — a dumped database structure file being the classic — sit staged in the working tree and get swept into an unrelated commit, breaking CI far beyond the PR's own scope. Cross-reference against the pre-existing dirty files noted in Phase 0. If something you didn't author is in the list, unstage it before pushing.
 
-### Pass 2 — Adversarial self-review against the rules
+### Passes 2–5 — Track 2 and Track 3
 
-Walk the diff line-by-line against Phase 7's execution rules and anti-patterns, and against the Book rules that loaded for the file types you touched. For each, ask "did I violate this?" — out loud, with a yes/no. Not "did I try to follow this?" — *did the resulting code follow it?*
+**Read `references/pre-pr-review.md` and follow it.** Full detail lives there; in brief:
 
-- Is anything inlined that should live in a domain model? (Book: skinny controllers, rich domain models)
-- Did I add protective code for a risk I never confirmed? (Book: malleable design over future-proofing)
-- Is anything placed on the most reachable type instead of the conceptual owner? (Rule 1)
-- Are there `if <invariant>` checks where the invariant is guaranteed upstream? (Anti-pattern)
-- Did I mix "empty list" and "null" semantics? (Anti-pattern)
-- Did I defer small in-scope fixes to follow-ups when they belonged here? (Anti-pattern)
-- Did I add code comments? (Book: we don't write them outside public library APIs and genuinely gnarly code)
-
-Report each as ✅ clean / ⚠️ borderline / ❌ violation. Fix every ❌ before Pass 3.
-
-Where an internal tool already reviews a diff against The Book, prefer it over hand-rolling this check — it reads from the live rule set and won't drift.
-
-### Pass 3 — Reviewer persona simulation
-
-For each likely reviewer (from `CODEOWNERS`, recent commit authors in the touched files, or `references/reviewer-profiles.md`), take on their known concerns and review the diff *as them*. Be specific — quote what they'd say.
-
-Output format per reviewer:
-
-> **As [Name]:** "[Specific comment they'd make, in their voice]. [What they'd want changed.]"
-
-If a persona has nothing to say, state that explicitly — don't skip silently.
-
-If a reviewer's profile isn't documented yet, infer from their last 5–10 comments on this area of the codebase. Useful commands:
-
-- `gh api repos/<org>/<repo>/pulls/comments --paginate -q '.[] | select(.user.login=="<handle>") | .body' | head -50`
-- `gh search prs --owner <org> --reviewed-by <handle> --limit 10`
-
-After running Pass 3, surface any new findings about a reviewer's recurring concerns — Phase 13 will propose adding them to `references/reviewer-profiles.md`.
-
-### Pass 4 — Fresh-eyes second opinion
-
-Invoke an independent reviewer with no context from this session. Two options:
-
-- Run the `code-review` skill at `--effort high`. **Never pass `--comment`** — that posts findings directly to the PR, which violates Phase 10's posting protocol. Findings go to Pass 5 synthesis only.
-- Spawn a general-purpose sub-agent with the diff and the original task description only, prompted: *"Review this diff for correctness bugs and code quality issues. You have no context on prior discussion. Be specific and quote line numbers."*
-
-The value of fresh-eyes review is bias removal — the original-context reviewer (mid-task) has invested in the current approach; the fresh-eyes reviewer hasn't.
-
-**Verify each finding; don't accept them on authority.** The fresh-eyes reviewer has *less* context than you — it hasn't read the ticket, the prior discussion, or the surrounding conventions. Some of its findings will describe problems that are already handled elsewhere, or that misread the architecture. For each one, check the actual code and classify it: confirmed, or invalid with a stated reason. Carry both lists into Pass 5 — the invalid ones are worth keeping, because the same misreading often resurfaces in human review and you'll already have the answer.
-
-### Pass 5 — Synthesize and decide
-
-Collect findings from passes 1–4 into one list. For each finding, classify it:
-
-- **Fix now** — issue is real and in scope. Address before opening PR.
-- **Document as a known trade-off** — issue is real but out of scope. Add to PR description so reviewers see it was considered.
-- **Reject with reasoning** — issue is wrong. Note why in case the same comment surfaces in human review.
-
-**Default output format:** see `references/output-format-catalog.md`. For most PRs with >3 findings, render as `./.pm-review-<short-sha>.html` using the annotated-diff pattern: columns for source pass, file:line (linked), severity, classification, reasoning. The "documented trade-offs" rows copy cleanly into the PR description. Short reviews (≤3 minor findings) can stay as a markdown list.
+- **Pass 2 — Adversarial self-review.** Walk the diff against Phase 7's rules, the anti-patterns, and the Book rules that loaded for these file types. Ask "did the resulting code follow this?", not "did I try to?" Mark ✅ / ⚠️ / ❌ and fix every ❌ before Pass 3. Includes the rule that size is not risk.
+- **Pass 3 — Reviewer personas.** Review as each likely reviewer, quoting what they'd say.
+- **Pass 4 — Fresh eyes.** An independent reviewer with no session context, then *verify* its findings rather than accepting them — it has less context than you.
+- **Pass 5 — Synthesize.** One list, each finding classified fix-now / documented-trade-off / rejected-with-reasoning.
 
 Only proceed to Phase 9 when every Pass 1 item is ✅. For Track 2 / Track 3, every Pass 2 ❌ must also be fixed.
 
@@ -616,30 +555,9 @@ The AI may freely edit code in response to a comment (that's Phase 7 work contin
 
 Any draft that includes a `gh pr comment` invocation is itself the violation — stop drafting and revert to text-only.
 
-### Who responds to what
+### Who responds, and how to draft it
 
-**User can respond to (AI drafts):**
-- Logistics (timing, tickets, titles, linking)
-- Intent (why we're building this)
-- Concrete fixes (typo, rename, missing test, adding a case to a test)
-- Acknowledging a fix has been made
-
-**Engineer should respond to (don't draft — escalate):**
-- "Have you considered X?" referencing existing code
-- Type system, schema, or API contract questions
-- Reviewer disagreements
-- Blocking comments
-- Domain model placement
-- Anything labeled `(blocking)`
-
-### Drafting protocol
-
-- **Never sign drafts as AI or attribute them to AI.** The user is the author.
-- **Match the user's actual writing voice, from samples.** "Write it in my voice" without examples produces a polished corporate register — which is exactly what reads as automated, whatever the signature says. Pull 3–5 of the user's own comments from prior PRs or threads on similar topics, analyze the patterns, and match them. See "Style cloning" in `references/prompt-techniques.md`.
-- **Keep drafts high-level.** The user fields the follow-up questions, so a draft that commits to technical detail they can't defend creates a trap. Pitch at the altitude they can speak to.
-- If the user can't defend the draft in their own words, that's the signal to recommend involving an engineer — not to rewrite the draft.
-- When two reviewers disagree, don't pick a side. Draft a message that surfaces the conflict to both and asks them to align. Tag them by name. User posts.
-- For each comment, take an action: fix in code, draft an acknowledgment, draft a push-back with reasoning, or escalate to an engineer. Don't leave comments hanging — but the user always posts.
+**Read `references/review-responses.md` and follow it.** The short version: the user answers logistics, intent, concrete fixes, and acknowledgments; an engineer answers anything about contracts, types, domain placement, reviewer disagreements, or marked `(blocking)`. Never sign a draft as AI, match the user's actual writing voice from samples, and keep drafts at an altitude they can defend without quoting you.
 
 ---
 
@@ -714,112 +632,27 @@ The last step on every track, including Track 1. Its job is to leave the ticket 
 
 Run it after the PR is open. It's idempotent — safe to re-run any time the work or the ticket moves.
 
-### Step 1 — Find the ticket
+**Read `references/ticket-reconciliation.md` and follow it.** Full detail lives there, including the Jira specifics that are easy to get wrong. In brief:
 
-Look in this order:
+1. **Find the ticket** — named by the user, or a key in the branch name or PR title. If sources disagree, ask.
+2. **If none exists, draft one and create it on confirmation** — creating a ticket writes to a shared tracker.
+3. **Reconcile four attributes** — description accurate, assigned to the user, status active, in the current sprint.
+4. **Verify PR linkage** through the ticket key in the branch and PR title, *not* the remote-links API, which returns empty for tickets that do have PRs.
+5. **Report, confirm once, then write** — and re-read to confirm each write landed.
 
-1. A ticket the user named explicitly in the conversation.
-2. A ticket key in the current branch name — keys look like `[A-Z][A-Z0-9]+-\d+` (e.g. a branch `ix-2174-custom-portfolio-label` implies `IX-2174`).
-3. A ticket key in the PR title or description.
-
-If two sources disagree, stop and ask which is right. Never guess between two candidate tickets.
-
-### Step 2 — If no ticket exists, create one
-
-Creating a ticket is an outward-facing action in a shared tracker, so **draft it, show the user, and create only on explicit confirmation.**
-
-Draft with:
-
-- **Project** — infer from sibling tickets in the same area or from the branch prefix. If it can't be inferred confidently, ask; don't default to a random project.
-- **Issue type** — `Bug` when fixing incorrect existing behavior, `Task`/`Story` when adding something. Check the project's available types rather than assuming.
-- **Summary** — one line, describing the user-facing outcome, not the implementation.
-- **Description** — match the shape the project already uses. Where a bug-report convention exists (an Observed / Expected structure is common), follow it. Include what the user sees, what they should see, and the affected surface.
-- **Assignee** — the current user (`atlassianUserInfo` → `account_id`).
-
-Then continue through the checks below as if the ticket had existed.
-
-### Step 3 — Reconcile the four attributes
-
-Check each, collect the drift, and present it as one batch before writing anything.
-
-**a. Description is accurate.** Compare it against what actually shipped. Work often diverges from the original report — a bug turns out to have a different cause, or the fix covers more or less than described. If it drifted, propose replacement text and show what changes. Never overwrite a description silently; the reporter's original account of the problem has value.
-
-**b. Assigned to the user.** Compare `assignee.accountId` against the current user's account id. If someone else is assigned, don't reassign — surface it, because it may be deliberate.
-
-**c. Status is active — In Progress or in review.** Do **not** hardcode status names; they differ per board. Read the real options with `getTransitionsForJiraIssue` and pick by `statusCategory`:
-
-- Target a transition whose destination `statusCategory.key` is `indeterminate` (Jira's "In Progress" category).
-- Among those, prefer by name in this order: `In Review` → `Code Review` → `In Progress`. Some boards have no review status at all — the Investing Enablement board, for example, offers only `In Progress` and `On Hold/Blocked` in that category. Never select a blocked/hold status as the target.
-- **Never transition a ticket to Done.** Closing a ticket is the team's call, made against their own definition of done, and often driven by board automation. This phase moves tickets *into* flight, never out.
-
-If the ticket is already `Done` while work is still in flight, that's drift worth reporting — but flag it and let the user decide rather than reopening it.
-
-**d. In the current active sprint.** Verify with JQL rather than the Agile API — no board id needed:
-
-```
-key = <TICKET> AND sprint in openSprints()
-```
-
-A result means it's in an open sprint. An empty result means it isn't. If it isn't, adding it requires writing the board's sprint field, which may be outside the available API scopes — attempt it, and if it fails, say so plainly and hand the user the one-click fix rather than reporting success.
-
-### Step 4 — Verify PR linkage the way a human sees it
-
-**The remote-issue-links API is not a reliable signal here.** It returns an empty list for tickets that demonstrably have linked PRs, because the GitHub integration surfaces them in the ticket's development panel rather than as remote links. An empty result is not evidence of a missing link, and chasing it produces phantom work.
-
-Verify the mechanism that actually drives linking instead:
-
-1. The ticket key appears in the branch name — `git branch --show-current`.
-2. The ticket key appears in the PR title — `gh pr view --json title,body`.
-3. The PR description links the ticket.
-
-If all three hold, the linkage is in place. If the key is missing from the PR title, fix the title. If it's missing from the branch name on an already-open PR, don't rename the branch — add the key to the title and description instead, and note it for next time.
-
-### Step 5 — Report, confirm, then write
-
-Present the findings as a short table: attribute, current state, desired state, proposed action. Batch every mutation behind a single confirmation so the user approves once, not five times.
-
-On approval, apply the changes and re-read the ticket to confirm each one landed. Report what actually changed — if a write failed (permissions, missing scope, a transition the workflow doesn't allow from the current status), say which one and why. Don't report success for a write you didn't verify.
+Two rules worth carrying without opening the file: **never transition a ticket to Done** (that's the team's call), and **never hardcode status names** (they differ per board — resolve them by status category).
 
 ---
 
 ## Interrupts
 
-Two commands that aren't workflow steps. They don't belong to a phase and they don't run in order — you reach for them mid-flow, from anywhere, and then return to whatever you were doing. Both exist because the linear workflow has no good answer for the situation they address.
+Two things that aren't workflow steps. They don't belong to a phase and don't run in order — reach for them mid-flow, from anywhere, and then return to what you were doing. Both are installed as slash commands, which is where the detail lives.
 
-### Capture an issue — "file this for later"
+**Capture an issue** — `/capture-issue`, or just say "file a follow-up." Phase 7's anti-patterns forbid pulling adjacent problems into the current PR and say to file a ticket instead; this is how that actually happens. Two minutes, one round of questions, drafted and created on confirmation, then straight back to the interrupted work. Uses Step 2 of `references/ticket-reconciliation.md` for the drafting rules.
 
-*Invoke with: "capture an issue" or "file a follow-up."*
+**Learning mode** — `/explain-this`, or "explain this to me." Pause development entirely. This is the missing half of Phase 10's rule about not defending what you don't understand: when the user hits something they can't follow, the alternative to escalating is understanding it. Three escalating levels, peer-to-peer, grounded in the code actually on screen, ending when the user can explain it back in their own words — not when the explanation sounded clear.
 
-Phase 7's anti-patterns forbid pulling adjacent problems into the current PR and say to file a follow-up ticket instead. This is how that ticket gets filed, without derailing the work in progress.
-
-The point is speed. The user is mid-task and wants this out of their head in under two minutes.
-
-1. **Ask at most 2–3 targeted questions in a single message.** What's the issue, current versus desired behavior, and type/priority if not obvious from the description. One round trip, not a back-and-forth. Skip anything already clear.
-2. **Search only when it helps.** Grep for the relevant files to attach context — three at most, the most relevant only. Don't research best practices for a straightforward bug.
-3. **Draft the ticket** using Phase 14 Step 2's creation rules — project inference, issue type, the project's own description convention, assignee.
-4. **Create it on confirmation**, report the key, and return to the interrupted work.
-
-Default to normal priority and medium effort; ask only if genuinely unclear. Bullet points, not paragraphs.
-
-### Learning mode — "explain this to me"
-
-*Invoke with: "learning opportunity", "explain this to me", or "teach me this."*
-
-Pause development entirely. This is not a detour from the work — it's the thing that makes the next task cheaper, and it's the missing half of Phase 10's rule about not defending what you don't understand. When the user hits something they can't follow, the workflow's only current answer is "escalate to an engineer." This is the other option: understand it.
-
-**Audience.** A product manager who ships production code with AI assistance. Solid fundamentals, reads code comfortably, not a senior engineer. Don't oversimplify and don't lecture. Peer-to-peer.
-
-**Structure — three levels, and let each one land before moving on.** Don't dump all three at once; the user says when to go deeper.
-
-1. **Core concept** — what this is, the problem it solves, when you'd reach for it, how it fits the wider system.
-2. **How it works** — the mechanics underneath, the trade-offs and why this approach was chosen, the failure modes to watch for, how to debug it when it breaks.
-3. **Deep dive** — implementation details that affect production behavior, scaling and performance implications, the alternatives and when they'd win, the senior-engineer read on it.
-
-**Ground every level in the code actually in front of the user.** Generic explanations are available anywhere; the value here is that it's *this* function, *this* schema, *this* PR. Favor concepts that compound over academic completeness, and name genuine difficulty honestly — "this is tricky because…" beats false simplicity.
-
-**The exit condition is the user explaining it back, not you deciding it was clear.** After each level, check whether it actually landed, and keep going until they can restate it in their own words. An explanation that reuses the vocabulary of the thing being explained leaves them with a definition and no comprehension. See "Explain-it-back" in `references/prompt-techniques.md`.
-
-Learning mode is also the right response when the user is about to accept a reviewer's comment they don't understand. Understanding the comment is a better outcome than applying it on faith.
+Learning mode is also the right response when the user is about to accept a reviewer's comment they don't follow.
 
 ---
 
@@ -827,6 +660,8 @@ Learning mode is also the right response when the user is about to accept a revi
 
 Detailed reference material lives under `references/`. Read on demand:
 
+- **`references/pre-pr-review.md`** — Phase 8 Passes 2–5 plus the UI pass, in full. Required reading for Track 2 and Track 3 before opening a PR.
+- **`references/ticket-reconciliation.md`** — Phase 14 in full, including the Jira specifics that are easy to get wrong. Required reading when reconciling a ticket.
 - **`references/reviewer-profiles.md`** — what specific reviewers care about. Used by Phase 8 Pass 3. Grows via Phase 13.
 - **`references/prompt-techniques.md`** — toolkit for prompting AIs (role assignment, few-shot, XML tags, grounding anchors, chain-of-thought, attack-then-steelman, style cloning, explain-it-back). Used by Phase 2, Phase 6, Phase 8 Pass 4, Phase 10, and learning mode.
 - **`references/output-format-catalog.md`** — when to use HTML vs markdown vs XML; pattern library; file naming convention. Consulted by every phase that produces output.

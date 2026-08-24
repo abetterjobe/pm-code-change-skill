@@ -66,11 +66,42 @@ See `SKILL.md` for the full invocation map.
 pm-code-change/
 ├── SKILL.md                              # Phase 0-14 workflow + track routing
 ├── README.md                             # This file
+├── commands/                             # Slash commands (symlinked to ~/.claude/commands/)
+│   ├── explain-this.md                   # Learning mode
+│   ├── capture-issue.md                  # File a follow-up ticket
+│   ├── reconcile-ticket.md               # Phase 14 standalone
+│   └── pre-flight.md                     # Phase 4 standalone
 └── references/
+    ├── pre-pr-review.md                  # Phase 8 Passes 2-5 + UI pass, in full
+    ├── ticket-reconciliation.md          # Phase 14 in full, incl. Jira specifics
+    ├── task-brief.md                     # Phase 2's 9 dimensions + brief template
+    ├── review-responses.md               # Phase 10 who-answers-what + drafting
     ├── reviewer-profiles.md              # Templates for Phase 8 Pass 3
-    ├── prompt-techniques.md              # Toolkit used by Phase 2 + Pass 4
+    ├── prompt-techniques.md              # Toolkit used by Phase 2, 6, 8, 10
     └── output-format-catalog.md          # When to use HTML / markdown / XML
 ```
+
+`SKILL.md` is the routing layer and always loads. The heavy detail lives in `references/` and loads only when a phase calls for it, so a two-line copy change doesn't pull in the full review procedure.
+
+## Slash commands
+
+Four steps stand alone — they take an input, produce an output, and need no workflow history — so they're also installed as commands that work without the skill loaded:
+
+| Command | What it does |
+|---|---|
+| `/explain-this` | Teach a concept at three levels until you can explain it back |
+| `/capture-issue` | File a follow-up ticket for something spotted mid-task |
+| `/reconcile-ticket` | Ticket accuracy, assignment, sprint, PR linkage |
+| `/pre-flight` | Investigate a code area before writing anything |
+
+Symlink them into place after cloning:
+
+```bash
+mkdir -p ~/.claude/commands
+ln -s ~/.claude/skills/pm-code-change/commands/*.md ~/.claude/commands/
+```
+
+The rest of the workflow has no command form on purpose. Routing, synthesis, the post-mortem, and every gate depend on knowing what came before — and a menu of fourteen commands would require knowing which to pick and in what order, which is the knowledge this skill exists to supply.
 
 ## Update
 
