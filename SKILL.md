@@ -428,7 +428,7 @@ Specific failure modes from prior work. Catch these proactively:
 - Mixing "empty list" and "null" semantics — pick one and be consistent.
 - Adding `if <invariant>` checks where the invariant is guaranteed by upstream filtering.
 - Deferring decisions to follow-up PRs when the fix is in scope and small.
-- Pulling adjacent unrelated issues into the current PR ("while I'm here"). File a follow-up ticket. The PR's job is the original ask, not surrounding cleanup.
+- Pulling adjacent unrelated issues into the current PR ("while I'm here"). File a follow-up ticket — **invoke `/capture-issue` on the spot rather than mentioning it in passing.** A problem noted in conversation and not filed is a problem forgotten. The PR's job is the original ask, not surrounding cleanup.
 
 ---
 
@@ -558,6 +558,8 @@ Any draft that includes a `gh pr comment` invocation is itself the violation —
 ### Who responds, and how to draft it
 
 **Read `references/review-responses.md` and follow it.** The short version: the user answers logistics, intent, concrete fixes, and acknowledgments; an engineer answers anything about contracts, types, domain placement, reviewer disagreements, or marked `(blocking)`. Never sign a draft as AI, match the user's actual writing voice from samples, and keep drafts at an altitude they can defend without quoting you.
+
+**If the user doesn't follow a reviewer's comment, offer `/explain-this` before drafting anything.** Don't draft an acknowledgment for a change they can't explain — they're the one who fields the follow-up. Understanding the comment is the better outcome, and it's cheaper now than in the next review.
 
 ---
 

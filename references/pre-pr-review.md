@@ -74,7 +74,7 @@ This pass was referenced by Phase 8's track table for a long time without ever b
 Collect findings from passes 1–4 into one list. For each finding, classify it:
 
 - **Fix now** — issue is real and in scope. Address before opening PR.
-- **Document as a known trade-off** — issue is real but out of scope. Add to PR description so reviewers see it was considered.
+- **Document as a known trade-off** — issue is real but out of scope. Add to PR description so reviewers see it was considered, **and invoke `/capture-issue` to file it.** A real issue written into a PR description and nowhere else dies when the PR merges. The description tells reviewers it was considered; the ticket is what makes it survive.
 - **Reject with reasoning** — issue is wrong. Note why in case the same comment surfaces in human review.
 
 **Default output format:** see `references/output-format-catalog.md`. For most PRs with >3 findings, render as `./.pm-review-<short-sha>.html` using the annotated-diff pattern: columns for source pass, file:line (linked), severity, classification, reasoning. The "documented trade-offs" rows copy cleanly into the PR description. Short reviews (≤3 minor findings) can stay as a markdown list.
