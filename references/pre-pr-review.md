@@ -51,7 +51,7 @@ After running Pass 3, surface any new findings about a reviewer's recurring conc
 Invoke an independent reviewer with no context from this session. Two options:
 
 - Run the `code-review` skill at `--effort high`. **Never pass `--comment`** — that posts findings directly to the PR, which violates Phase 10's posting protocol. Findings go to Pass 5 synthesis only.
-- Spawn a general-purpose sub-agent with the diff and the original task description only, prompted: *"Review this diff for correctness bugs and code quality issues. You have no context on prior discussion. Be specific and quote line numbers."*
+- Spawn a general-purpose sub-agent with the diff, the original task description, and the draft PR title and body, prompted: *"Review this diff and its PR title and description. You have no context on prior discussion. For each finding, open with a Conventional Comments label and a blocking decoration — `issue (blocking): …`, `suggestion (non-blocking): …` — anchor it at file:line, state what it costs if left, and mark anything you couldn't verify UNVERIFIED. Blocking means the change shouldn't merge as it stands; it's a claim about the merge, not about how confident you are. Also check that the description explains why, matches the diff, and contains no file-by-file walkthrough or 'tests pass'."*
 
 The value of fresh-eyes review is bias removal — the original-context reviewer (mid-task) has invested in the current approach; the fresh-eyes reviewer hasn't.
 
@@ -71,7 +71,7 @@ This pass was referenced by Phase 8's track table for a long time without ever b
 
 ## Pass 5 — Synthesize and decide
 
-Collect findings from passes 1–4 into one list. For each finding, classify it:
+Collect findings from passes 1–4 into one list, each carrying its blocking or non-blocking decoration. For each finding, classify it:
 
 - **Fix now** — issue is real and in scope. Address before opening PR.
 - **Document as a known trade-off** — issue is real but out of scope. Add to PR description so reviewers see it was considered, **and invoke `/capture-issue` to file it.** A real issue written into a PR description and nowhere else dies when the PR merges. The description tells reviewers it was considered; the ticket is what makes it survive.

@@ -240,7 +240,7 @@ Most tickets land here. This should feel like a normal small edit, not a process
 
 5. **See it working locally.** Non-negotiable on every track. But if the environment is already up, this is a look at the screen — not Phase 9's four-step reset-and-restart recipe. Reach for that only if the environment is down or behaving oddly.
 
-6. **Open the PR.** Title, a one-line description, the ticket key in the title. Show it, get a yes, run `gh pr create`. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
+6. **Open the PR.** Title in Conventional Commits form with the ticket key. The description opens with one sentence saying the problem and the approach — a bare ticket link is not a description, and the template's "What is the new functionality?" prompt is answered with the why. Before showing the draft, check it says nothing the diff doesn't do and carries no "tests pass" or per-file bullets. Then show it, get a yes, run `gh pr create`. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
 
 7. **Two ticket checks.** Not Phase 14's five: is the ticket key in the branch and PR title, and is the ticket assigned to you and in the current sprint. Skip the description review — a label change doesn't invalidate the original report. If no ticket exists at all, then run `/capture-issue`.
 
@@ -545,18 +545,19 @@ The AI **creates the PR**, but only after explicit user confirmation. This is di
 
 Workflow:
 
-1. AI assembles the draft per the checklist below (title, description, reviewers, tour file if Track 3).
-2. AI shows the full draft to the user — title, description (rendered), reviewer list, and the exact `gh pr create` invocation it intends to run.
-3. User reviews, edits whatever needs editing, and confirms by saying "open it" or equivalent.
-4. AI runs `gh pr create` with the confirmed content.
-5. AI reports the PR URL back to the user.
+1. AI assembles the draft per the checklist below (title, description, reviewers, tour file if Track 3). **Read `references/pr-description.md` before writing the description** — every track.
+2. AI runs the description check below on its own draft and fixes every miss before the user sees it.
+3. AI shows the full draft to the user — title, description (rendered), reviewer list, and the exact `gh pr create` invocation it intends to run.
+4. User reviews, edits whatever needs editing, and confirms by saying "open it" or equivalent.
+5. AI runs `gh pr create` with the confirmed content.
+6. AI reports the PR URL back to the user.
 
-If the user doesn't confirm — or edits the draft — loop back to step 2 before running `gh pr create`. The AI never opens a PR without explicit user confirmation.
+If the user doesn't confirm — or edits the draft — loop back to step 3 before running `gh pr create`. The AI never opens a PR without explicit user confirmation.
 
 ### By track
 
-- **Track 1:** handled in the Track 1 workflow — title, one-line description, confirm, create. Nothing else on this page applies.
-- **Track 2:** full description with what/why/how-to-test. PR tour optional.
+- **Track 1:** handled in the Track 1 workflow — title, a one-sentence why and approach, a quick self-check, confirm, create. Nothing else on this page applies.
+- **Track 2:** full description per `references/pr-description.md`: why, the approach, anything non-obvious, verification CI can't show. PR tour optional.
 - **Track 3:** full description + HTML PR tour saved to `./.pm-pr-tour-<pr-number>.html`. Link the tour from the PR description.
 
 ### Draft checklist
@@ -569,6 +570,19 @@ Betterment's PR authoring standards live in The Book (`the-book rules github/prs
 4. **Include the Pass 5 "documented trade-offs" list** so reviewers see what was considered and consciously deferred.
 
 If title/description drifts from reality during review, update them. Don't let them lie.
+
+### Description check
+
+The PR's own title and body are reviewable output, and a miss here is a finding like any code finding. Check the draft — and check it again after any push that changes what the PR does:
+
+1. **Title** is Conventional Commits (`<type>(scope): <description>`), imperative, under 70 characters, carries the ticket key, and stands alone for someone scanning a list of merged PRs.
+2. **Opening paragraph** states the problem or capability and the approach. A ticket link alone fails.
+3. **Body matches the final diff.** No intended, dropped, or follow-up work described as done.
+4. **No filler**: no "tests pass" or "verified locally", no line or file counts, no per-file bullets, no walkthrough of the diff.
+5. **Fits on one screen.**
+6. **Every file in the diff is one the ticket called for**, or the body says why it's there.
+
+Any miss is fixed before the draft goes to the user. Once the PR exists, `/bookworm:pr-review` covers the same ground against The Book — the check here exists so the user never sees a draft that would fail it.
 
 ---
 
@@ -700,6 +714,7 @@ Learning mode is also the right response when the user is about to accept a revi
 Detailed reference material lives under `references/`. Read on demand:
 
 - **`references/pre-pr-review.md`** — Phase 8 Passes 2–5 plus the UI pass, in full. Required reading for Track 2 and Track 3 before opening a PR.
+- **`references/pr-description.md`** — how to write the PR description within the repo template. Required reading on every track before drafting a PR.
 - **`references/ticket-reconciliation.md`** — Phase 14 in full, including the Jira specifics that are easy to get wrong. Required reading when reconciling a ticket.
 - **`references/reviewer-profiles.md`** — what specific reviewers care about. Used by Phase 8 Pass 3. Grows via Phase 13.
 - **`references/prompt-techniques.md`** — toolkit for prompting AIs (role assignment, few-shot, XML tags, grounding anchors, chain-of-thought, attack-then-steelman, style cloning, explain-it-back). Used by Phase 2, Phase 6, Phase 8 Pass 4, Phase 10, and learning mode.
