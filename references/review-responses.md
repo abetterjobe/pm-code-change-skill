@@ -2,6 +2,18 @@
 
 Detail for Phase 10. The posting protocol itself stays in `SKILL.md` — it's a hard gate that has to be present whether or not this file gets read. This covers who answers what, and how to draft it.
 
+## Triage each comment first: what it is, and whether it blocks
+
+Before drafting anything, label every reviewer comment for the user with a [Conventional Comments](https://conventionalcomments.org) label and a blocking decoration:
+
+```
+<label> (<blocking | non-blocking>): <one-line summary>
+```
+
+Labels: `issue` (a defect), `suggestion` (a clear improvement), `question`, `thought`, `nitpick`, `chore`, `praise`. When the reviewer labelled the comment, use their label. When they didn't, infer one and say it's inferred — an unlabelled comment reads as blocking to a cautious author and optional to a confident one, and the user shouldn't have to guess which the reviewer meant. When the blocking status genuinely can't be inferred, the draft reply asks.
+
+Present the triaged list blocking-first, so the user sees what stands between the PR and merge before the optional items.
+
 ## Who responds to what
 
 **User can respond to (AI drafts):**
@@ -27,6 +39,7 @@ Detail for Phase 10. The posting protocol itself stays in `SKILL.md` — it's a 
 - **Keep drafts high-level.** The user fields the follow-up questions, so a draft that commits to technical detail they can't defend creates a trap. Pitch at the altitude they can speak to.
 - If the user can't defend the draft in their own words, that's the signal to recommend involving an engineer — not to rewrite the draft.
 - When two reviewers disagree, don't pick a side. Draft a message that surfaces the conflict to both and asks them to align. Tag them by name. User posts.
+- **When drafting a comment on someone else's PR**, label it the same way, one point per comment, and say what the problem costs — "this reads the file on every request, so each page view costs a disk read" gets fixed; "this reads the file on every request" gets argued.
 - For each comment, take an action: fix in code, draft an acknowledgment, draft a push-back with reasoning, or escalate to an engineer. Don't leave comments hanging — but the user always posts.
 
 ## When a comment isn't understood
