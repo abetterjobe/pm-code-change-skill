@@ -240,7 +240,7 @@ Most tickets land here. This should feel like a normal small edit, not a process
 
 5. **See it working locally.** Non-negotiable on every track. But if the environment is already up, this is a look at the screen — not Phase 9's four-step reset-and-restart recipe. Reach for that only if the environment is down or behaving oddly.
 
-6. **Open the PR.** Title with the ticket key, and a description whose opening paragraph says the problem and the approach — one sentence is enough on Track 1, but a bare ticket link is not. Fill the repo template per `references/pr-description.md`, run Phase 9's description check, then show it, get a yes, run `gh pr create`. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
+6. **Open the PR.** Title in Conventional Commits form with the ticket key. The description opens with one sentence saying the problem and the approach — a bare ticket link is not a description, and the template's "What is the new functionality?" prompt is answered with the why. Before showing the draft, check it says nothing the diff doesn't do and carries no "tests pass" or per-file bullets. Then show it, get a yes, run `gh pr create`. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
 
 7. **Two ticket checks.** Not Phase 14's five: is the ticket key in the branch and PR title, and is the ticket assigned to you and in the current sprint. Skip the description review — a label change doesn't invalidate the original report. If no ticket exists at all, then run `/capture-issue`.
 
@@ -556,7 +556,7 @@ If the user doesn't confirm — or edits the draft — loop back to step 3 befor
 
 ### By track
 
-- **Track 1:** handled in the Track 1 workflow — title, a short description that still opens with the problem and approach, the description check, confirm, create. Nothing else on this page applies.
+- **Track 1:** handled in the Track 1 workflow — title, a one-sentence why and approach, a quick self-check, confirm, create. Nothing else on this page applies.
 - **Track 2:** full description per `references/pr-description.md`: why, the approach, anything non-obvious, verification CI can't show. PR tour optional.
 - **Track 3:** full description + HTML PR tour saved to `./.pm-pr-tour-<pr-number>.html`. Link the tour from the PR description.
 
