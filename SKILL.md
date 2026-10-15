@@ -20,6 +20,7 @@ Run the full workflow end-to-end by saying "run the PM code change workflow."
 
 Or invoke individual phases on demand:
 
+- "announce the work" → Kickoff
 - "set up the branch" → Phase 0
 - "do the routing" → Phase 1
 - "sharpen the prompt" → Phase 2
@@ -94,9 +95,25 @@ If The Book has no guidance on something, say so rather than inventing a standar
 
 ---
 
+## Kickoff: announce the work
+
+The first thing on every code-change task, on every track, before Phase 0. Draft a short summary of the work that the user can paste into the right team channel, so the people who own or depend on the area hear about it before code exists rather than when a PR lands in their review queue.
+
+Draft it from the user's description of the task. No investigation first: if the work later changes shape, the user can follow up in the thread.
+
+Keep it to two or three sentences, in plain language a teammate outside the work can follow:
+
+- **What** is changing, in user-facing terms where possible
+- **Why**: the problem, the ticket key if there is one
+- **Where** it touches: the screen, app, or area
+
+Then name the channel it belongs in if it's clear from the task, or ask. Show the draft and move on to Phase 0. The user posts it. The AI never does (same rule as Phase 10).
+
+---
+
 ## Phase 0: Workspace and branch setup
 
-Run this before anything else, including routing. Skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
+Run this before anything else, including routing, except for the kickoff announcement. Skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
 
 **It's one action, plus three standing rules.** The action is a single command:
 
@@ -216,6 +233,8 @@ The last one deserves care in this codebase. Changing the *label* above a dollar
 That instruction is the point. Everything below Phase 1 is written for Track 2 and Track 3 — reading it, or following pointers into it, is how a two-line change ends up carrying thirty-odd steps. Track 1 has its own abbreviated versions of the shared phases, inlined here. Use these, not the full ones.
 
 Most tickets land here. This should feel like a normal small edit, not a process.
+
+The kickoff announcement has already been drafted by this point. It runs on every track, Track 1 included.
 
 1. **Say what changes in one line, and find it.** One search for the string or component. Follow whatever pattern the neighbours use. If the search surprises you — it's in five places, the component is shared more widely than expected — stop and escalate to Track 2.
 

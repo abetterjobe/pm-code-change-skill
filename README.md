@@ -23,6 +23,8 @@ The skill is built around guardrails for non-engineer authorship:
 
 **Standards come from The Book**, not from this skill. Betterment's engineering standards (https://the-book.betterment.io) auto-load into Claude Code by file type. This skill owns *process* — how a non-engineer gets a change from idea to merge without wasting reviewer time — and cites The Book for *standards* rather than keeping a copy that drifts.
 
+Every track starts with a kickoff announcement: a two-or-three-sentence summary of the work for you to paste into the right team channel, so the owners of the area hear about it before code exists.
+
 Every track ends with ticket reconciliation: the Jira ticket is described accurately, assigned to you, in an active state, in the current sprint, and linked to the PR — or created and filled out if it doesn't exist yet.
 
 See [`SKILL.md`](./SKILL.md) for the full workflow (Phase 0 through Phase 14).
@@ -45,6 +47,7 @@ The skill runs the gate (3 user-answerable questions plus a hard-override check)
 
 Or invoke individual phases on demand:
 
+- *"announce the work"* → Kickoff (draft the team-channel summary)
 - *"set up the branch"* → Phase 0 (workspace + branch hygiene)
 - *"do the routing"* → Phase 1 (track selection)
 - *"sharpen the prompt"* → Phase 2 (structured task brief)
