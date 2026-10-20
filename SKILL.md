@@ -21,6 +21,8 @@ Run the full workflow end-to-end by saying "run the PM code change workflow."
 Or invoke individual phases on demand:
 
 - "announce the work" → Kickoff
+- "status" / "where are we" → Status checkpoint
+- "orchestrate this" → Orchestration (`references/orchestration.md`)
 - "set up the branch" → Phase 0
 - "do the routing" → Phase 1
 - "sharpen the prompt" → Phase 2
@@ -58,6 +60,19 @@ The two interrupts are also callable conversationally, from anywhere and outside
 ## Output format
 
 Each phase notes a default format, but the AI should pick the format from `references/output-format-catalog.md` that best matches the content's shape. HTML for spatial/comparative/long-form content. Markdown for linear or ephemeral content. XML for AI-to-AI handoffs.
+
+## Status checkpoints
+
+There is usually a lot in flight. After each bucket of work finishes, give the user a short status without being asked. A bucket is: a phase that produced something (a plan, a review, a PR), a review cycle answered, CI fixed, a PR merged, or in an orchestrated project, any ticket changing state.
+
+Keep it to one screen:
+
+- **Done** — what just finished, with links (PR, ticket)
+- **In flight** — what's still open and where it stands
+- **Next** — the next steps, each with who acts: the user, the AI, or an engineer
+- **Blocked** — anything waiting on someone, and on whom
+
+In an orchestrated project the status covers the whole project, read from `.pm-project.md`, not just the ticket that moved. When the user asks for a status, it's the same shape.
 
 ## Session start: sync with the remote
 
@@ -108,6 +123,8 @@ Keep it to two or three sentences, in plain language a teammate outside the work
 - **Where** it touches: the screen, app, or area
 
 Then name the channel it belongs in if it's clear from the task, or ask. Show the draft and move on to Phase 0. The user posts it. The AI never does (same rule as Phase 10).
+
+In an orchestrated project, the kickoff is one announcement for the whole project, drafted by the orchestration session. Ticket sessions skip it.
 
 ---
 
@@ -205,6 +222,12 @@ Regardless of how the three questions scored, any of the following puts the task
 - Anything that moves customer money, or changes a displayed balance, projection, or performance figure
 
 The last one deserves care in this codebase. Changing the *label* above a dollar figure is Track 1. Changing the *figure* is Track 3, however small the diff looks.
+
+### Orchestration check
+
+When a hard override is a backend or contract change (GraphQL schema, REST endpoint, event payload, or a field other apps consume), ask one more question: **is there web or mobile work that will consume it?** If yes, the work is a multi-ticket project. Offer an orchestration session and, on a yes, **read `references/orchestration.md` and follow it.** If no, carry on as a single Track 3 task.
+
+Frontend-only work doesn't qualify, even across web and mobile. Those tickets have no ordering between them, so each one runs as its own normal session.
 
 ### Track → phase map
 
@@ -733,6 +756,7 @@ Detailed reference material lives under `references/`. Read on demand:
 
 - **`references/pre-pr-review.md`** — Phase 8 Passes 2–5 plus the UI pass, in full. Required reading for Track 2 and Track 3 before opening a PR.
 - **`references/pr-description.md`** — how to write the PR description within the repo template. Required reading on every track before drafting a PR.
+- **`references/orchestration.md`** — running a multi-ticket project where a backend or contract change has web or mobile consumers. Required reading when Phase 1's orchestration check comes back yes.
 - **`references/ticket-reconciliation.md`** — Phase 14 in full, including the Jira specifics that are easy to get wrong. Required reading when reconciling a ticket.
 - **`references/reviewer-profiles.md`** — what specific reviewers care about. Used by Phase 8 Pass 3. Grows via Phase 13.
 - **`references/prompt-techniques.md`** — toolkit for prompting AIs (role assignment, few-shot, XML tags, grounding anchors, chain-of-thought, attack-then-steelman, style cloning, explain-it-back). Used by Phase 2, Phase 6, Phase 8 Pass 4, Phase 10, and learning mode.
