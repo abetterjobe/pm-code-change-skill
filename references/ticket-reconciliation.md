@@ -1,6 +1,6 @@
 # Ticket reconciliation
 
-Detail for Phase 14. Runs on every track, after the PR is open. Idempotent — safe to re-run any time the work or the ticket moves.
+Detail for Phase 14. Runs in full on Track 2 and Track 3, after the PR is open; Track 1 runs only two of these checks, inside its own workflow. Idempotent — safe to re-run any time the work or the ticket moves.
 
 Goal: leave the ticket in a state that accurately reflects reality — described correctly, owned by the user, in an active state, in the current sprint, and connected to the PR.
 

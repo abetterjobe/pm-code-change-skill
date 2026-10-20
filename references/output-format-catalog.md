@@ -29,7 +29,7 @@ For each output the skill produces, pick the format that matches the content's s
 
 ## File naming convention
 
-Save to the project root with prefix `.pm-` and phase suffix:
+Save to the repo's git-ignored scratch directory when it has one (in retail, `.scratch/` at the repo root, per its `AGENTS.md`). Otherwise use the project root. Either way, use the prefix `.pm-` and a phase suffix:
 
 - `.pm-brief.html` — Phase 2 task brief
 - `.pm-plan.md` — Phase 6 execution plan with status tracking (markdown, because Phase 7 edits it continuously)
@@ -38,7 +38,7 @@ Save to the project root with prefix `.pm-` and phase suffix:
 - `.pm-pr-tour-<pr-number>.html` — Phase 9 PR tour
 - `.pm-postmortem-<pr-number>.html` — Phase 13 post-mortem
 
-Gitignore `.pm-*` if not already — the plan file is markdown, so an `.html`-only pattern would leave it committable.
+If the files have to go in the project root, check `git status` before every commit: they're untracked, and the plan file is markdown, so it is easy to sweep in. Don't edit the repo's `.gitignore` to hide them — that's an unrelated change in someone's PR.
 
 ## When in doubt
 

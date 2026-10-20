@@ -12,7 +12,7 @@ A workflow for product managers (or junior engineers) driving code changes with 
 - User is not an engineer (or is junior).
 - User is the driver of a code change. AI is the executor and advisor.
 - The change touches a real codebase, not a sandbox.
-- AI's job: assess complexity, surface signals, write code, draft responses. Gates exist where they protect against predictable mistakes (Phase 9 PR creation, Phase 10 posting, Phase 13 skill edits) — those require explicit user sign-off.
+- AI's job: assess complexity, surface signals, write code, draft responses. Gates exist where they protect against predictable mistakes (Phase 9 PR creation, Phase 10 posting, Phase 13 skill edits, and creating or changing a Jira ticket) — those require explicit user sign-off. The kickoff announcement is drafted only; the user posts it.
 
 ## How to invoke
 
@@ -115,13 +115,13 @@ Then name the channel it belongs in if it's clear from the task, or ask. Show th
 
 Run this before anything else, including routing, except for the kickoff announcement. Skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
 
-**It's one action, plus three standing rules.** The action is a single command:
+**It's one action, plus five standing rules.** The action is a single command:
 
 ```bash
 git fetch origin && git checkout -b <descriptive-branch-name> origin/main && git status --short
 ```
 
-That's the whole of Phase 0 in practice. The sections below are *conditions that always hold*, not additional steps to work through — read them once, then apply them without ceremony. Don't turn four standing rules into a four-step checklist on a copy change.
+That's the whole of Phase 0 in practice. The sections below are *conditions that always hold*, not additional steps to work through — read them once, then apply them without ceremony. Don't turn five standing rules into a five-step checklist on a copy change.
 
 ### New task means new branch
 
@@ -297,7 +297,7 @@ Before Phase 3, sharpen the ask itself. The cost of a fuzzy initial ask compound
 - The user is mid-task continuing prior work.
 - Track 1.
 
-**Read `references/task-brief.md` and follow it.** In brief: restate the ask in one sentence, score the 9 dimensions (task, input, output, constraints, context, audience, memory, success criteria, examples) as clear / implicit / missing, ask **at most 3** questions targeting the worst gaps, then produce a Task Brief as XML with every dimension filled in and inferences marked as such. Save it to `./.pm-brief.html` for the user to review before Phase 3.
+**Read `references/task-brief.md` and follow it.** In brief: restate the ask in one sentence, score the 9 dimensions (task, input, output, constraints, context, audience, memory, success criteria, examples) as clear / implicit / missing, ask **at most 3** questions targeting the worst gaps, then produce a Task Brief as XML with every dimension filled in and inferences marked as such. Save it as `.pm-brief.html` in the scratch location for the user to review before Phase 3.
 
 The three-question cap is deliberate — it forces prioritization instead of spending the user's time on open-ended Q&A.
 
@@ -330,7 +330,7 @@ Before writing code, investigate the area.
 
 1. **Search the codebase for similar features.** Existing patterns set precedent. If a similar feature exists, it almost certainly defines the convention to follow. **For UI/UX changes, check adjacent pages in the same flow first** — they're the highest-probability source of an applicable pattern. If you find one, state it explicitly: *"X pattern exists at [file]; I'll use that instead of writing new CSS/components."*
 2. **Read process docs in the area.** README, CONTRIBUTING, AGENTS.md, ADR/SDR/RFC directories, runbooks. Discovering process requirements mid-PR causes rework. The Book's path-scoped rules load automatically, but repo- and directory-specific docs do not — read those yourself.
-3. **Identify the conceptual owner of the change.** Ask "who owns this data/behavior?" before "where is it easiest to add this?" The conceptually correct location is usually not the most convenient. The Book's guidance on domain ownership is the reference here — see `the-book ways application-design`.
+3. **Identify the conceptual owner of the change.** Ask "who owns this data/behavior?" before "where is it easiest to add this?" The conceptually correct location is usually not the most convenient. The Book's closest guidance is *"We build skinny controllers and rich domain models"* (`the-book ways writing-software`); it has no rule on which model owns a given field, so this one is judgment — say so when it's unclear, rather than citing a rule.
 4. **Identify likely reviewers and codeowners.** Check `CODEOWNERS` files or recent commit authors. Knowing who reviews helps frame the change — and seeds Phase 8 Pass 3.
 
 **Does this need a design review?** The Book requires a design review when introducing a new pattern, a novel application of an existing pattern, or a new way of interacting with another app — and a lightweight ADR when a pattern changes (`the-book ways writing-software`). If pre-flight suggests any of those, surface it now. Discovering a design-review requirement after the code is written is one of the most expensive misses available.
@@ -388,7 +388,7 @@ If this scoring contradicts Phase 1's initial routing, the more cautious track w
 
 Before building, write down the approach.
 
-**Track 2 and Track 3 write the plan to a file, not just to chat.** A plan that lives only in conversation dies with the session — and long tasks outlive their sessions. Save it to `./.pm-plan.md` with per-step status and an overall progress figure at the top:
+**Track 2 and Track 3 write the plan to a file, not just to chat.** A plan that lives only in conversation dies with the session — and long tasks outlive their sessions. Save it to `.pm-plan.md` in the scratch location from `references/output-format-catalog.md`, with per-step status and an overall progress figure at the top:
 
 ```markdown
 # <Feature> implementation plan
@@ -411,7 +411,7 @@ Status markers: 🟥 to do, 🟨 in progress, 🟩 done. Phase 7 updates the fil
 
 Two things this buys. **Recovery:** when context gets long or a session ends, the next session starts from the plan file alone and doesn't need the transcript. **Scope control:** a written step list makes added scope visible, because new work has to be added to the file to be tracked.
 
-Keep the plan minimal. No steps that weren't discussed, no speculative structure, no complexity beyond what was clarified. Track 1 skips this entirely — a six-step change doesn't need a tracking document.
+Keep the plan minimal. No steps that weren't discussed, no speculative structure, no complexity beyond what was clarified. Track 1 skips this entirely — a seven-step change doesn't need a tracking document.
 
 1. **State the approach in 2–3 bullets.** What you'll change, where, and why.
 2. **List unknowns and produce questions for any that need engineer input.** Unknowns fall into two buckets:
@@ -439,13 +439,13 @@ Keep the plan minimal. No steps that weren't discussed, no speculative structure
 
 Apply these rules continuously, not just at the start.
 
-**Track 2 / Track 3: update `./.pm-plan.md` as each step lands** — flip the status marker and refresh the progress figure. Do it as you go, not in a batch at the end; the file's value is that it's accurate at any moment the session might be interrupted.
+**Track 2 / Track 3: update `.pm-plan.md` as each step lands** — flip the status marker and refresh the progress figure. Do it as you go, not in a batch at the end; the file's value is that it's accurate at any moment the session might be interrupted.
 
 ### Execution rules
 
 Betterment's code standards come from The Book and load automatically by file type — follow them. The rules below are the ones this skill adds on top, because they address failure modes specific to AI-assisted work by a non-engineer.
 
-1. **Place things where they belong.** Identify the conceptual owner before the convenient call site. The Book's domain-ownership guidance is the reference (`the-book ways application-design`); the failure mode this rule guards against is reaching for whatever type is already in context.
+1. **Place things where they belong.** Identify the conceptual owner before the convenient call site. The Book has no rule for this beyond rich domain models (cited below); the failure mode this rule guards against is reaching for whatever type is already in context.
 2. **Read the docs before writing code.** Even when the task seems obvious. The Book auto-loads standards, but repo READMEs, ADRs, runbooks, and contributing guides do not — and process requirements discovered mid-PR cause rework.
 3. **Don't quietly expand scope after the user has confirmed a next step.** When the user says testing is done and asks for a PR, open the PR. Don't detour into unrequested tests, refactors, or polish first. If you believe something else is needed, say so in a sentence and let them decide.
 
@@ -577,7 +577,7 @@ If the user doesn't confirm — or edits the draft — loop back to step 3 befor
 
 - **Track 1:** handled in the Track 1 workflow — title, a one-sentence why and approach, a quick self-check, confirm, create. Nothing else on this page applies.
 - **Track 2:** full description per `references/pr-description.md`: why, the approach, anything non-obvious, verification CI can't show. PR tour optional.
-- **Track 3:** full description + HTML PR tour saved to `./.pm-pr-tour-<pr-number>.html`. Link the tour from the PR description.
+- **Track 3:** full description + HTML PR tour saved as `.pm-pr-tour-<pr-number>.html` in the scratch location. Link the tour from the PR description.
 
 ### Draft checklist
 
@@ -685,14 +685,13 @@ After PR is merged (or after a review cycle that surfaced significant comments),
 7. **Show the user the proposed diff and the commit message that will be used. Get explicit confirmation.** On approval:
    - Apply the edit to `SKILL.md` and/or `references/*.md`
    - `git add` the changed files
-   - `git commit` with a message describing what was learned and why the change was made (format: *"Phase 13: <one-line summary>"* with a body explaining the trigger)
-   - `git push` to the remote so the next session picks it up
+   - `git commit` in Conventional Commits form (`the-book rules git/commits`), e.g. `docs(routing): force Track 3 for permission changes`, with a body explaining what triggered the change
 
-   Don't apply, commit, or push without explicit confirmation — the AI never edits or publishes the skill silently. The user's single approval covers all three actions (edit, commit, push) since they're conceptually one action: "make this skill update durable."
+   Don't apply or commit without explicit confirmation — the AI never edits the skill silently. The user's single approval covers the edit and the commit.
 
-   If `git push` fails (auth expired, conflict, offline), surface the error to the user. Don't auto-resolve.
+   **Don't push, and don't open a PR, unless the user asks.** The committed change is what the next session loads; publishing it anywhere else is a separate decision. If this copy of the skill isn't a git checkout at all (it was shared as a folder), stop after showing the diff and let the user apply it.
 
-**Default output format:** see `references/output-format-catalog.md`. For PRs with >3 substantive review comments, render as `./.pm-postmortem-<pr-number>.html` using the timeline pattern: each comment in chronological order, annotated with the phase that should have caught it, why it didn't, and the proposed skill change. Include the proposed diff at the bottom so the upgrade is one paste away. Short post-mortems (1–3 comments) can stay as a markdown list.
+**Default output format:** see `references/output-format-catalog.md`. For PRs with >3 substantive review comments, render as `.pm-postmortem-<pr-number>.html` in the scratch location using the timeline pattern: each comment in chronological order, annotated with the phase that should have caught it, why it didn't, and the proposed skill change. Include the proposed diff at the bottom so the upgrade is one paste away. Short post-mortems (1–3 comments) can stay as a markdown list.
 
 ---
 

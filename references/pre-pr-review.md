@@ -50,7 +50,7 @@ After running Pass 3, surface any new findings about a reviewer's recurring conc
 
 Invoke an independent reviewer with no context from this session. Two options:
 
-- Run the `code-review` skill at `--effort high`. **Never pass `--comment`** — that posts findings directly to the PR, which violates Phase 10's posting protocol. Findings go to Pass 5 synthesis only.
+- Run the `code-review` skill at high effort. **Never pass `--comment`** — that posts findings directly to the PR, which violates Phase 10's posting protocol. Findings go to Pass 5 synthesis only.
 - Spawn a general-purpose sub-agent with the diff, the original task description, and the draft PR title and body, prompted: *"Review this diff and its PR title and description. You have no context on prior discussion. For each finding, open with a Conventional Comments label and a blocking decoration — `issue (blocking): …`, `suggestion (non-blocking): …` — anchor it at file:line, state what it costs if left, and mark anything you couldn't verify UNVERIFIED. Blocking means the change shouldn't merge as it stands; it's a claim about the merge, not about how confident you are. Also check that the description explains why, matches the diff, and contains no file-by-file walkthrough or 'tests pass'."*
 
 The value of fresh-eyes review is bias removal — the original-context reviewer (mid-task) has invested in the current approach; the fresh-eyes reviewer hasn't.
@@ -65,8 +65,6 @@ Don't hand-roll this. The `audit-react-frontend` skill already audits React work
 
 Run it, then carry its findings into Pass 5 alongside the others. If the change touches Playwright specs, `audit-playwright-tests` covers those separately.
 
-This pass was referenced by Phase 8's track table for a long time without ever being defined — an instruction to run a pass that didn't exist. It's defined here now by pointing at the tool that already does the work.
-
 ---
 
 ## Pass 5 — Synthesize and decide
@@ -77,6 +75,6 @@ Collect findings from passes 1–4 into one list, each carrying its blocking or 
 - **Document as a known trade-off** — issue is real but out of scope. Add to PR description so reviewers see it was considered, **and invoke `/capture-issue` to file it.** A real issue written into a PR description and nowhere else dies when the PR merges. The description tells reviewers it was considered; the ticket is what makes it survive.
 - **Reject with reasoning** — issue is wrong. Note why in case the same comment surfaces in human review.
 
-**Default output format:** see `references/output-format-catalog.md`. For most PRs with >3 findings, render as `./.pm-review-<short-sha>.html` using the annotated-diff pattern: columns for source pass, file:line (linked), severity, classification, reasoning. The "documented trade-offs" rows copy cleanly into the PR description. Short reviews (≤3 minor findings) can stay as a markdown list.
+**Default output format:** see `references/output-format-catalog.md`. For most PRs with >3 findings, render as `.pm-review-<short-sha>.html` in the scratch location using the annotated-diff pattern: columns for source pass, file:line (linked), severity, classification, reasoning. The "documented trade-offs" rows copy cleanly into the PR description. Short reviews (≤3 minor findings) can stay as a markdown list.
 
 Only proceed to Phase 9 when every Pass 1 item is ✅. For Track 2 / Track 3, every Pass 2 ❌ must also be fixed.

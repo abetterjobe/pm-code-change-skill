@@ -37,7 +37,7 @@ XML, consumed by the AI in Phase 3. See `output-format-catalog.md` for when to a
 </task-brief>
 ```
 
-Save the Brief to `./.pm-brief.html` so the user can review it before Phase 3 starts.
+Save the Brief as `.pm-brief.html` in the scratch location from `output-format-catalog.md` so the user can review it before Phase 3 starts.
 
 ## A note on the question cap
 
