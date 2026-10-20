@@ -132,21 +132,24 @@ In an orchestrated project, the kickoff is one announcement for the whole projec
 
 Run this before anything else, including routing, except for the kickoff announcement. Skipping it produces the most expensive class of mistake this skill has seen — not bad code, but *good code in the wrong place*, mixed with someone else's work, or committed alongside files nobody meant to touch.
 
-**It's one action, plus five standing rules.** The action is a single command:
+**It's one action, plus five standing rules.** The action: make sure this session has its own worktree on a fresh branch off `origin/main`, then see what's already dirty.
+
+- **Already in a worktree made for this session** (the desktop app usually makes one): you're set. Confirm the branch and check status.
+- **In the shared checkout:** create a worktree before touching anything. In Claude Code, use the `EnterWorktree` tool, which branches from `origin/main`. Otherwise:
 
 ```bash
-git fetch origin && git checkout -b <descriptive-branch-name> origin/main && git status --short
+git fetch origin && git worktree add -b <descriptive-branch-name> ../<repo>-<descriptive-branch-name> origin/main
 ```
+
+To tell which you're in: `git rev-parse --git-dir` and `git rev-parse --git-common-dir` print different paths inside a worktree and the same path in the shared checkout.
 
 That's the whole of Phase 0 in practice. The sections below are *conditions that always hold*, not additional steps to work through — read them once, then apply them without ceremony. Don't turn five standing rules into a five-step checklist on a copy change.
 
-### New task means new branch
+### New task means new worktree and new branch
 
-Starting something new means branching off `origin/main` immediately. No questions, no "let me first see what's here." Never build on `main`, and never build on a branch left over from a different task.
+Starting something new means a new worktree on a new branch off `origin/main`, immediately. No questions, no "let me first see what's here." Never build on `main`, never build on a branch left over from a different task, and never switch branches in a checkout another task is using. A branch alone isn't enough: two tasks sharing one checkout share its uncommitted files, its stash, and whatever's half-built.
 
-```bash
-git fetch origin && git checkout -b <descriptive-branch-name> origin/main
-```
+A fresh worktree has no installed dependencies. Install them the way the repo's getting-started doc says before running tests or linters.
 
 ### Verify the branch before every consequential action
 
@@ -164,9 +167,11 @@ Never mix two independent tasks on one branch or in one PR. If a second task com
 
 ### Worktree isolation is absolute
 
-If the session is running in a git worktree, touch **nothing** outside that worktree. Not `main`, not the shared checkout, not another task's directory. Do not leave the worktree to escape friction — friction inside the worktree gets solved inside the worktree.
+Every task runs in its own worktree, and the session touches **nothing** outside it. Not `main`, not the shared checkout, not another task's directory. Do not leave the worktree to escape friction — friction inside the worktree gets solved inside the worktree.
 
 Note that some repo-level conveniences are unsafe inside a worktree — a database reset that assumes the shared checkout is one of them. Check before running repo scripts that touch shared state.
+
+Local verification can mean showing this branch in the user's running environment, which lives in the shared checkout. That checkout step is the user's, done in their own terminal; give them the exact command rather than running it.
 
 ### Know what's already dirty
 
@@ -261,10 +266,10 @@ The kickoff announcement has already been drafted by this point. It runs on ever
 
 1. **Say what changes in one line, and find it.** One search for the string or component. Follow whatever pattern the neighbours use. If the search surprises you — it's in five places, the component is shared more widely than expected — stop and escalate to Track 2.
 
-2. **Branch and glance at what's already dirty.** One command, not Phase 0's five checks:
+2. **Get a worktree and glance at what's already dirty.** Small changes still get their own worktree. If the session isn't already in one made for it, create one (`EnterWorktree` in Claude Code, or `git worktree add -b <name> ../<repo>-<name> origin/main`), then:
 
    ```bash
-   git fetch origin && git checkout -b <name> origin/main && git status --short
+   git status --short
    ```
 
    Anything already modified isn't yours. Note it for step 4.
