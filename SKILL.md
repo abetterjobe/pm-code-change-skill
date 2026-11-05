@@ -247,7 +247,7 @@ Frontend-only work doesn't qualify, even across web and mobile. Those tickets ha
 | 3 Intake | run | run |
 | 4 Pre-flight | run | run + module map |
 | 5 Complexity confirm | confirm | run |
-| 6 Planning | run | run + engineer alignment before code |
+| 6 Planning | run, including the PR slicing | run, including the PR slicing + engineer alignment before code |
 | 7 Build | execution rules apply | execution rules apply |
 | 8 Pre-PR review | Passes 1, 2, 3, edge-case sweep, 5, Book review; HTML if >3 findings | all 5 passes + edge-case sweep + UI pass + Book review, HTML |
 | 9 Open PR | standard description; draft until bot review is clear | full description + HTML tour; draft until bot review is clear |
@@ -433,6 +433,10 @@ What we're building and why, in two sentences.
 ## Decisions made
 - <choice> — <why>
 
+## PRs
+- PR 1: <one concern> — base `main` — ~<lines>
+- PR 2: <one concern> — base PR 1's branch — ~<lines>
+
 ## Tasks
 - [ ] 🟥 **Step 1: <name>**
   - [ ] 🟥 <subtask>
@@ -457,9 +461,15 @@ Keep the plan minimal. No steps that weren't discussed, no speculative structure
 
    Categories to draw from: **placement, contract shape, process (design review / ADR), coordination, conventions, risk.**
 
-3. **Attack the plan before committing to it.** Track 2 and 3 only. Take the approach from step 1 and try to break it: which assumption, if wrong, sinks it? What's the single biggest problem? Then steelman it and give an actual verdict. Phase 8 Pass 2 does this to the code, which is the expensive moment to discover a bad approach; here it's still cheap. Use the "Attack, then steelman" pattern in `references/prompt-techniques.md` — and if the attack surfaces something real, say so plainly rather than softening it. Deferring to the user on a plan you can see is wrong is the most costly way to be agreeable.
+3. **Slice the work into PRs before building.** Track 2 and 3 only. Size is decided here, not when the PR opens: by Phase 9 the code is one branch, and splitting it means untangling commits. On past PRs, those over 250 lines stayed open a median of about a week against about a day for those under 100, drew a median of four or five reviewer comments against none, and picked up about eight times as many merge commits from main per PR. Reviewers asked for splits outright, and one held a review until the PR it duplicated merged.
+   - **One concern per PR.** Slice by layer and by behavior: a flag on its own, a schema or contract change on its own, each server class, each UI behavior. Complexity counts more than line count; a reviewer would rather review four small simple PRs than one large one.
+   - **Each PR has to do something on its own.** Don't cut a feature into halves that each do nothing, or a split that adds work nobody needs. Reviewers push back on that too. If a core won't split without dead halves, say so and keep it whole.
+   - **Independent off `main` by default. Stack only when PR 2 needs PR 1's code** (see Phase 9, Stacked PRs).
+   - **Aim for under ~250 lines per PR.** Write each PR's concern, base, and estimated size in the plan file's `## PRs` section, and show the user the list before building.
 
-4. **Decide based on the track:**
+4. **Attack the plan before committing to it.** Track 2 and 3 only. Take the approach from step 1 and try to break it: which assumption, if wrong, sinks it? What's the single biggest problem? Then steelman it and give an actual verdict. Phase 8 Pass 2 does this to the code, which is the expensive moment to discover a bad approach; here it's still cheap. Use the "Attack, then steelman" pattern in `references/prompt-techniques.md` — and if the attack surfaces something real, say so plainly rather than softening it. Deferring to the user on a plan you can see is wrong is the most costly way to be agreeable.
+
+5. **Decide based on the track:**
    - **Track 2** — the AI reads the relevant area docs itself, then proceeds.
    - **Track 3** — share approach, unknowns, and engineer questions with the user. **Alignment with an engineer happens before code, not after.** If engineer questions exist, state explicitly: *"Once you have answers, share them and I can resume."*
 
@@ -499,7 +509,8 @@ When any of these appear, surface them immediately:
 - User would have to defend a choice in a comment they couldn't defend without quoting you.
 - A change you thought was internal turns out to affect a public API contract.
 - Iteration count on the same design decision is exceeding 3–5 attempts. Stop, restate the actual user need, and search again for existing patterns before continuing. Sustained iteration without convergence is a sign the wrong approach is being refined.
-- The diff is approaching ~250 lines. That's already chunky by Betterment standards — see Phase 9 on splitting.
+- The PR is passing ~250 lines. After each plan step lands, run `git diff --shortstat <base>...HEAD`, where the base is `origin/main` or, for a stacked PR, the branch below it. Once the PR passes ~250 lines, stop and propose ending it at the last finished step, with the remaining steps as the next PR. Update the plan file's `## PRs` section when the user agrees.
+- A fix that isn't needed for this PR's concern turns up, such as an existing bug nearby. It goes in its own PR off `main`, not this one. Reviewers ask for exactly that split.
 
 ### Anti-patterns to avoid
 
@@ -595,13 +606,27 @@ If local verification is blocked by environment issues, the user makes the call 
 
 ### Size check: prefer several small PRs
 
-Before opening, ask whether this should be more than one PR. Split by behavior increment — each PR should be a coherent, reviewable step.
+Phase 6 sliced the work; this checks the result. Run `git diff --shortstat <base>...HEAD` against the PR's base and report the size to the user, split into production and test lines.
 
-- Prefer independent PRs. Stack them only when genuinely interdependent.
-- ~250 lines is already chunky by Betterment standards. Treat that as a prompt to reconsider, not a hard limit.
+- **Over ~250 lines:** propose a split before opening anything, naming each PR and its base. Keep it as one PR only when one of these is true, and say which in the description:
+  - It can't split without halves that do nothing alone.
+  - Splitting would hide what makes the change safe.
+  - It's mechanical (a rename, a bulk deletion) and the diff is still easy to read.
+
+  A one-PR change can still be broken into commits that each work on their own, so one can move to its own PR if a reviewer asks (`the-book rules github/prs`). Put the production and test line counts in the description too (for example, "~120 of 209 lines are tests").
+- **Anything outside this PR's concern** comes out into its own PR off `main`.
 - A large PR from a non-engineer author costs reviewers disproportionately more, because they can't assume the author caught the mechanical issues.
 
-If splitting makes sense, propose the split before opening anything.
+### Stacked PRs
+
+Stack only when PR 2 needs PR 1's code. A PR opened against `main` that depends on another open PR carries all of that PR's changes too, so reviewers see them twice and wait for the first to merge.
+
+1. Branch PR 2 off PR 1's branch, not `origin/main`: `git worktree add -b <pr2-branch> ../<repo>-<pr2-branch> <pr1-branch>`.
+2. Open it with PR 1's branch as its base: `gh pr create --base <pr1-branch> ...`. The diff then shows only PR 2's changes, and both can be reviewed at once.
+3. Say in PR 2's description that it's stacked and link PR 1.
+4. When PR 1 merges and its branch is deleted, GitHub retargets PR 2 to `main`. If it doesn't, run `gh pr edit <pr2-number> --base main`. Then merge `origin/main` into PR 2 and check that `gh pr diff <pr2-number>` shows only PR 2's changes, with none of PR 1's repeated, before asking for more review.
+
+A PR in another repository can't stack. It waits until the change it depends on is deployed (see `references/orchestration.md`).
 
 ### Creation protocol
 
@@ -697,6 +722,7 @@ Default action: investigate before retrying. A retry that "works" doesn't mean t
 - **Schema drift / generated-file diffs** → regenerate via the codebase's documented command. Don't hand-edit.
 - **Flaky tests on a path unrelated to your changes** → flag to the user. Identify the owner. Recommend retry or escalation; don't try to fix.
 - **Pre-existing failures in main** → identify, mention, do not block on them.
+- **A check that fails only because the branch is behind `main`** (such as merge-base recency) → not a code problem. Tell the user, and leave it until the PR is otherwise ready to merge (Phase 12, Merging main into the branch).
 
 When flagging a flaky failure, include: test file path, owning team (from CODEOWNERS), and whether it was failing before this PR.
 
@@ -715,10 +741,23 @@ Before recommending merge, confirm:
 5. Linked ticket title still accurate, and the ticket ↔ PR links still resolve both ways.
 6. No `(blocking)` comments unresolved.
 7. No scope creep that hasn't been discussed with reviewers.
-8. The branch still contains only this task's work.
+8. The branch still contains only this task's work. For a stacked PR retargeted to `main`, `gh pr diff <number>` shows none of the PR below it.
 9. Both Book reviews (Phase 8) ran on the final diff, and their confirmed findings are addressed.
 
 If anything is off, surface to the user before they merge.
+
+### Merging main into the branch
+
+Merge `origin/main` into the branch only when one of these is true:
+
+- The PR has a merge conflict.
+- The branch needs a change that has since landed on `main`.
+- A required check fails because the branch is behind. Betterment's retail repo has a "Merge-base recency" check that fails every morning a PR has stayed open past midnight Eastern.
+- The merge queue rejected the PR because generated files drifted.
+
+GitHub's "This branch is out-of-date" banner is not on that list. It appears after any new commit to `main`, and in a repo with a merge queue, the queue brings the branch up to date at merge time.
+
+When a merge is needed, do it at most once a day, and time it for just before review is requested or just before the PR merges. In repos that dismiss approvals on every push, as retail does, a merge after approval sends the PR back to its reviewers. On past PRs, 136 of 511 commits were merges from `main`, 48 of those were a second or later merge on the same day, and later pushes dismissed approvals 37 times. After merging, re-run the PR's own tests, and reinstall dependencies if a lockfile changed.
 
 ---
 
