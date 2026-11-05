@@ -33,6 +33,7 @@ Or invoke individual phases on demand:
 - "review before PR" → Phase 8 (passes per track)
 - "just persona review" → Phase 8, Pass 3 only
 - "fresh eyes" → Phase 8, Pass 4 only
+- "edge-case sweep" → Phase 8, edge-case sweep only
 - "respond to comments" → Phase 10
 - "post-mortem" → Phase 13
 - "reconcile the ticket" → Phase 14
@@ -248,8 +249,8 @@ Frontend-only work doesn't qualify, even across web and mobile. Those tickets ha
 | 5 Complexity confirm | confirm | run |
 | 6 Planning | run | run + engineer alignment before code |
 | 7 Build | execution rules apply | execution rules apply |
-| 8 Pre-PR review | Passes 1, 2, 3, 5; HTML if >3 findings | all 5 passes + UI pass, HTML |
-| 9 Open PR | standard description | full description + HTML tour |
+| 8 Pre-PR review | Passes 1, 2, 3, edge-case sweep, 5; HTML if >3 findings | all 5 passes + edge-case sweep + UI pass, HTML |
+| 9 Open PR | standard description; draft until bot review is clear | full description + HTML tour; draft until bot review is clear |
 | 10–12 Reviews / CI / merge | run | run |
 | 13 Post-mortem | run if substantive comments | run |
 | 14 Ticket reconciliation | run | run |
@@ -276,8 +277,9 @@ The kickoff announcement has already been drafted by this point. It runs on ever
 
 3. **Make the change.** Phase 7's execution rules and The Book's standards still apply — small changes don't get to violate a standard. Nothing else from Phase 7 applies.
 
-4. **Check four things, then push.** This is Track 1's whole review — not Pass 1's eight items, and none of Passes 2–5:
+4. **Check five things, then push.** This is Track 1's whole review — not Pass 1's eight items, and none of Passes 2–5:
 
+   - The change looks right in every state the screen can be in: while loading, with no data, after an error, and with a long or zero value. Not just the one state with typical data.
    - Targeted tests for the touched files pass
    - The formatter ran, not just the linter
    - The diff contains nothing beyond the ask
@@ -517,15 +519,15 @@ Specific failure modes from prior work. Catch these proactively:
 This is the highest-leverage phase. Most engineer-time-wasted on past PRs has been predictable comments that a robust self-review would have caught. The goal here is to surface those comments before a human sees them.
 
 **By track:**
-- **Track 1:** does not come here. Its four-item check lives in the Track 1 workflow under Phase 1.
-- **Track 2:** Passes 1, 2, 3 (1–2 personas), and 5. Skip Pass 4 unless the change is substantial (≥5 files, new public API surface, or new business-logic class). HTML output only if >3 findings.
-- **Track 3:** All 5 passes + UI pass (if any UI changed). HTML output mandatory.
+- **Track 1:** does not come here. Its five-item check lives in the Track 1 workflow under Phase 1.
+- **Track 2:** Passes 1, 2, 3 (1–2 personas), the edge-case sweep, and 5. Skip Pass 4 unless the change is substantial (≥5 files, new public API surface, or new business-logic class). HTML output only if >3 findings.
+- **Track 3:** All 5 passes + edge-case sweep + UI pass (if any UI changed). HTML output mandatory.
 
 Run the included passes in order. Don't skip to Phase 9 until the track's final pass is complete.
 
 ### Pass 1 — Mechanical checklist
 
-The minimum gate for Track 2 and Track 3. Everything here is checkable without judgment, which is exactly why it gets skipped and exactly why it bites. (Track 1 runs a four-item subset, inlined in its own workflow — don't send it here.)
+The minimum gate for Track 2 and Track 3. Everything here is checkable without judgment, which is exactly why it gets skipped and exactly why it bites. (Track 1 runs its own five-item check, inlined in its own workflow — don't send it here.)
 
 1. Tests written and passing for new behavior.
 2. Schema/generated files regenerated (not hand-edited).
@@ -542,13 +544,14 @@ The minimum gate for Track 2 and Track 3. Everything here is checkable without j
 
    Every file in it must be one you meant to touch. This is the single most repeated mechanical failure in this skill's history: generated or reset artifacts — a dumped database structure file being the classic — sit staged in the working tree and get swept into an unrelated commit, breaking CI far beyond the PR's own scope. Cross-reference against the pre-existing dirty files noted in Phase 0. If something you didn't author is in the list, unstage it before pushing.
 
-### Passes 2–5 — Track 2 and Track 3
+### Passes 2–5 and the edge-case sweep — Track 2 and Track 3
 
 **Read `references/pre-pr-review.md` and follow it.** Full detail lives there; in brief:
 
 - **Pass 2 — Adversarial self-review.** Walk the diff against Phase 7's rules, the anti-patterns, and the Book rules that loaded for these file types. Ask "did the resulting code follow this?", not "did I try to?" Mark ✅ / ⚠️ / ❌ and fix every ❌ before Pass 3. Includes the rule that size is not risk.
 - **Pass 3 — Reviewer personas.** Review as each likely reviewer, quoting what they'd say.
 - **Pass 4 — Fresh eyes.** An independent reviewer with no session context, then *verify* its findings rather than accepting them — it has less context than you.
+- **Edge-case sweep.** A second fresh agent with one job: find the states, server rules, and totals the change doesn't handle. Every confirmed case ends in a test or story, or a documented trade-off.
 - **Pass 5 — Synthesize.** One list, each finding classified fix-now / documented-trade-off / rejected-with-reasoning.
 
 Only proceed to Phase 9 when every Pass 1 item is ✅. For Track 2 / Track 3, every Pass 2 ❌ must also be fixed.
@@ -596,10 +599,21 @@ Workflow:
 2. AI runs the description check below on its own draft and fixes every miss before the user sees it.
 3. AI shows the full draft to the user — title, description (rendered), reviewer list, and the exact `gh pr create` invocation it intends to run.
 4. User reviews, edits whatever needs editing, and confirms by saying "open it" or equivalent.
-5. AI runs `gh pr create` with the confirmed content.
+5. AI runs `gh pr create` with the confirmed content. Track 2 and Track 3 add `--draft`.
 6. AI reports the PR URL back to the user.
 
 If the user doesn't confirm — or edits the draft — loop back to step 3 before running `gh pr create`. The AI never opens a PR without explicit user confirmation.
+
+### Bot review before humans — Track 2 and Track 3
+
+Get the bot reviews done while the PR is still a draft, before any person is asked to look. On past PRs, Copilot raised most of the timing and server-rule edge cases, but only after reviewers were already in, so every finding cost a commit and often another round of human review. The Book backs the draft step: *"Use draft PRs for unfinished work"* (`the-book rules github/prs`).
+
+1. Open the PR as a draft (step 5 above).
+2. Request Copilot: `gh pr edit <number> --add-reviewer "@copilot"`. In mobile, the Claude review also runs when the PR opens.
+3. When the reviews land, verify each finding against the code and classify it with Pass 5's three buckets. Fix the confirmed ones. To re-run after a fix, request Copilot again with the same command; in mobile, add the `claude:review` label to re-run Claude.
+4. When no confirmed finding is left open, tell the user the PR is ready to come out of draft. **The user marks it ready, not the AI** — that's the step that puts it in front of reviewers.
+
+Track 1 skips this and opens ready for review.
 
 ### By track
 
@@ -759,7 +773,7 @@ Learning mode is also the right response when the user is about to accept a revi
 
 Detailed reference material lives under `references/`. Read on demand:
 
-- **`references/pre-pr-review.md`** — Phase 8 Passes 2–5 plus the UI pass, in full. Required reading for Track 2 and Track 3 before opening a PR.
+- **`references/pre-pr-review.md`** — Phase 8 Passes 2–5 plus the edge-case sweep and the UI pass, in full. Required reading for Track 2 and Track 3 before opening a PR.
 - **`references/pr-description.md`** — how to write the PR description within the repo template. Required reading on every track before drafting a PR.
 - **`references/orchestration.md`** — running a multi-ticket project where a backend or contract change has web or mobile consumers. Required reading when Phase 1's orchestration check comes back yes.
 - **`references/ticket-reconciliation.md`** — Phase 14 in full, including the Jira specifics that are easy to get wrong. Required reading when reconciling a ticket.

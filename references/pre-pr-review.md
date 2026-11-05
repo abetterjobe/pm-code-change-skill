@@ -1,4 +1,4 @@
-# Pre-PR review: Passes 2–5
+# Pre-PR review: Passes 2–5 and the edge-case sweep
 
 Detail for Phase 8. Pass 1 (the mechanical checklist) lives in `SKILL.md` because it's the universal gate and Track 1's only one — this file covers the passes that only Track 2 and Track 3 run.
 
@@ -18,6 +18,11 @@ Walk the diff line-by-line against Phase 7's execution rules and anti-patterns, 
 - Did I defer small in-scope fixes to follow-ups when they belonged here? (Anti-pattern)
 - Did I add code comments? (Book: we don't write them outside public library APIs and genuinely gnarly code)
 - Is the verification adequate for what changed — not just green, but actually covering the new behavior? A passing suite that never exercises the changed branch is the gap worth naming.
+- For everything the change loads: what shows while it loads, when it comes back empty, when it errors, and while it reloads with the old data still on screen?
+- For everything the change submits: what happens on a double tap, when the user closes the screen mid-request, and when the screen is gone by the time the response arrives?
+- For every value the client checks or calculates: does the server already own that rule or number?
+- For every figure on screen: does it add up to the figure it's part of, and does it still read right at zero and at a value too small to show?
+- Did I assume data is always present, or always has one shape, without checking the type or where it comes from?
 
 Report each as ✅ clean / ⚠️ borderline / ❌ violation. Fix every ❌ before Pass 3.
 
@@ -59,6 +64,29 @@ The value of fresh-eyes review is bias removal — the original-context reviewer
 
 ---
 
+## Edge-case sweep — Track 2 and Track 3
+
+Pass 2 asks the edge-case questions, but the session that built the change is the one answering them, and it's invested in the approach. On past PRs, edge cases were the most common kind of review comment: states nobody handled, timing problems, client code guessing at server rules, totals that didn't add up. A cold reader found most of them after the PR was open. This pass hands that one question to a fresh agent before the PR opens.
+
+Spawn a general-purpose sub-agent with no session context. Give it the diff, the ticket, and this prompt:
+
+> "Find the states and inputs this change doesn't handle. Work through three lenses and report on each one, writing 'not applicable' where the diff has nothing for it.
+>
+> 1. **States.** For every piece of data the change loads: what renders while it loads, when it's empty, when it errors, and while it reloads with old data on screen? For every action that submits: what happens on a double tap, when the user dismisses mid-request, when the screen is gone by the time the response arrives, and when the request succeeds but the refresh after it fails?
+> 2. **Trace to the source.** For every value the client validates, filters, or calculates, find the server code that owns it: validators, minimums and limits, resolver filters, the type a mutation actually returns. Flag anywhere the client re-implements, guesses at, or contradicts a server rule, and cite the server file and line.
+> 3. **Reconcile the numbers.** For every displayed figure: does it add up to the figure it's part of, and match the same figure elsewhere in the app? Check it at zero, at a value too small to round to a visible digit, and when the underlying records differ (different funds in different accounts, a missing second record).
+>
+> For each finding, give file:line, the concrete input or sequence that breaks it, and what the user sees. Mark anything you couldn't confirm in the code UNVERIFIED."
+
+Verify each finding against the code, the same way as Pass 4. Every confirmed finding ends in one of two places:
+
+- **A fix, with a test or Storybook story that pins the state.** The fix alone leaves the next change free to break it again.
+- **A documented trade-off in the PR description, plus `/capture-issue`.**
+
+A confirmed edge case with neither is the comment a reviewer leaves next.
+
+---
+
 ## UI pass — Track 3, when any UI changed
 
 Don't hand-roll this. The `audit-react-frontend` skill already audits React work in `@betterment/retail` against team conventions — story coverage, Playwright coverage, routing and navigation, shared layouts, Samba/Panda styling verified through the Samba MCP, and React 19 readiness. It produces a numbered findings report and only applies fixes on request.
@@ -69,7 +97,7 @@ Run it, then carry its findings into Pass 5 alongside the others. If the change 
 
 ## Pass 5 — Synthesize and decide
 
-Collect findings from passes 1–4 into one list, each carrying its blocking or non-blocking decoration. For each finding, classify it:
+Collect findings from passes 1–4 and the edge-case sweep into one list, each carrying its blocking or non-blocking decoration. For each finding, classify it:
 
 - **Fix now** — issue is real and in scope. Address before opening PR.
 - **Document as a known trade-off** — issue is real but out of scope. Add to PR description so reviewers see it was considered, **and invoke `/capture-issue` to file it.** A real issue written into a PR description and nowhere else dies when the PR merges. The description tells reviewers it was considered; the ticket is what makes it survive.
