@@ -32,10 +32,12 @@ See [`SKILL.md`](./SKILL.md) for the full workflow (Phase 0 through Phase 14).
 ## Install
 
 ```bash
-git clone https://github.com/abetterjobe/pm-code-change-skill ~/.claude/skills/pm-code-change
+curl -fsSL https://raw.githubusercontent.com/abetterjobe/pm-code-change-skill/main/install.sh | bash
 ```
 
-That's it. The skill auto-loads in any Claude Code session that triggers it — starting a coding task, asking "should I build this or loop in an engineer?", preparing to open a PR, or responding to PR review comments.
+The script clones the skill into `~/.claude/skills/pm-code-change`, links the slash commands into `~/.claude/commands`, and lists anything else the skill needs that isn't installed yet: the GitHub CLI, The Book CLI, and the `bookworm` plugin, which reviews every PR against The Book. It never overwrites a command you already have under the same name.
+
+The skill auto-loads in any Claude Code session that triggers it — starting a coding task, asking "should I build this or loop in an engineer?", preparing to open a PR, or responding to PR review comments.
 
 ## Use
 
@@ -69,13 +71,16 @@ See `SKILL.md` for the full invocation map.
 pm-code-change/
 ├── SKILL.md                              # Phase 0-14 workflow + track routing
 ├── README.md                             # This file
+├── install.sh                            # Install or update, plus a check for what else it needs
 ├── commands/                             # Slash commands (symlinked to ~/.claude/commands/)
 │   ├── explain-this.md                   # Learning mode
 │   ├── capture-issue.md                  # File a follow-up ticket
 │   ├── reconcile-ticket.md               # Phase 14 standalone
 │   └── pre-flight.md                     # Phase 4 standalone
 └── references/
-    ├── pre-pr-review.md                  # Phase 8 Passes 2-5 + UI pass, in full
+    ├── pre-pr-review.md                  # Phase 8 Passes 2-5, edge-case sweep, UI pass, in full
+    ├── pr-description.md                 # Phase 9 description rules
+    ├── orchestration.md                  # Multi-ticket projects run from one session
     ├── ticket-reconciliation.md          # Phase 14 in full, incl. Jira specifics
     ├── task-brief.md                     # Phase 2's 9 dimensions + brief template
     ├── review-responses.md               # Phase 10 who-answers-what + drafting
@@ -97,23 +102,13 @@ Four steps stand alone — they take an input, produce an output, and need no wo
 | `/reconcile-ticket` | Ticket accuracy, assignment, sprint, PR linkage |
 | `/pre-flight` | Investigate a code area before writing anything |
 
-Symlink them into place after cloning:
-
-```bash
-mkdir -p ~/.claude/commands
-ln -s ~/.claude/skills/pm-code-change/commands/*.md ~/.claude/commands/
-```
+`install.sh` links them into `~/.claude/commands`.
 
 The rest of the workflow has no command form on purpose. Routing, synthesis, the post-mortem, and every gate depend on knowing what came before — and a menu of fourteen commands would require knowing which to pick and in what order, which is the knowledge this skill exists to supply.
 
 ## Update
 
-```bash
-cd ~/.claude/skills/pm-code-change
-git pull
-```
-
-Next Claude Code session picks up the new version.
+Run the install command again. It pulls the latest version and links any new commands. The skill also pulls on its own at the start of a session when your copy has no local edits.
 
 ## Contribute back
 
