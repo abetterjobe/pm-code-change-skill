@@ -249,7 +249,7 @@ Frontend-only work doesn't qualify, even across web and mobile. Those tickets ha
 | 5 Complexity confirm | confirm | run |
 | 6 Planning | run | run + engineer alignment before code |
 | 7 Build | execution rules apply | execution rules apply |
-| 8 Pre-PR review | Passes 1, 2, 3, edge-case sweep, 5; HTML if >3 findings | all 5 passes + edge-case sweep + UI pass, HTML |
+| 8 Pre-PR review | Passes 1, 2, 3, edge-case sweep, 5, Book review; HTML if >3 findings | all 5 passes + edge-case sweep + UI pass + Book review, HTML |
 | 9 Open PR | standard description; draft until bot review is clear | full description + HTML tour; draft until bot review is clear |
 | 10–12 Reviews / CI / merge | run | run |
 | 13 Post-mortem | run if substantive comments | run |
@@ -287,9 +287,11 @@ The kickoff announcement has already been drafted by this point. It runs on ever
 
    The last one is where Track 1 actually fails. The diff is two lines and three unrelated files ride along.
 
+   Then run `/bookworm:code-review` on the diff and fix what it confirms. Small diffs get it too.
+
 5. **See it working locally.** Non-negotiable on every track. But if the environment is already up, this is a look at the screen — not Phase 9's four-step reset-and-restart recipe. Reach for that only if the environment is down or behaving oddly.
 
-6. **Open the PR.** Title in Conventional Commits form with the ticket key. The description opens with one sentence saying the problem and the approach — a bare ticket link is not a description, and the template's "What is the new functionality?" prompt is answered with the why. Before showing the draft, check it says nothing the diff doesn't do and carries no "tests pass" or per-file bullets. Then show it, get a yes, run `gh pr create`. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
+6. **Open the PR.** Title in Conventional Commits form with the ticket key. The description opens with one sentence saying the problem and the approach — a bare ticket link is not a description, and the template's "What is the new functionality?" prompt is answered with the why. Before showing the draft, check it says nothing the diff doesn't do and carries no "tests pass" or per-file bullets. Then show it, get a yes, run `gh pr create`, and run `/bookworm:pr-review <number>` on the new PR. When you report the PR, say whether both Book reviews ran and what they found. Phase 9's draft checklist, reviewer selection, and trade-offs list don't apply — reviewers come from CODEOWNERS automatically and nothing was traded off.
 
 7. **Two ticket checks.** Not Phase 14's five: is the ticket key in the branch and PR title, and is the ticket assigned to you and in the current sprint. Skip the description review — a label change doesn't invalidate the original report. If no ticket exists at all, then run `/capture-issue`.
 
@@ -522,6 +524,7 @@ This is the highest-leverage phase. Most engineer-time-wasted on past PRs has be
 - **Track 1:** does not come here. Its five-item check lives in the Track 1 workflow under Phase 1.
 - **Track 2:** Passes 1, 2, 3 (1–2 personas), the edge-case sweep, and 5. Skip Pass 4 unless the change is substantial (≥5 files, new public API surface, or new business-logic class). HTML output only if >3 findings.
 - **Track 3:** All 5 passes + edge-case sweep + UI pass (if any UI changed). HTML output mandatory.
+- **Track 2 and Track 3:** the Book review below, before the first push.
 
 Run the included passes in order. Don't skip to Phase 9 until the track's final pass is complete.
 
@@ -555,6 +558,17 @@ The minimum gate for Track 2 and Track 3. Everything here is checkable without j
 - **Pass 5 — Synthesize.** One list, each finding classified fix-now / documented-trade-off / rejected-with-reasoning.
 
 Only proceed to Phase 9 when every Pass 1 item is ✅. For Track 2 / Track 3, every Pass 2 ❌ must also be fixed.
+
+### Book review — every PR
+
+Every PR gets two reviews against The Book from the `bookworm` plugin (Betterment's plugin marketplace), however small the diff. Track 1 runs them from its own workflow; the rules here are the same.
+
+1. **Before the first push:** `/bookworm:code-review` on the local diff. Fix what it confirms before pushing.
+2. **Once the PR exists:** `/bookworm:pr-review <number>`. Verify and classify its findings the same way as the bot reviews in Phase 9. It drafts; it never posts (Phase 10).
+3. **Before each later push that changes behavior:** run `/bookworm:code-review` again on the whole branch's diff against main, not only the newest commit. A fix for one review comment is where a new problem usually gets in.
+4. **Report the outcome without being asked.** Whenever you hand the user a PR or report on one, say whether both reviews ran and which findings are still open. A PR handed over without that is unfinished, however good the code is.
+
+If the plugin isn't installed, tell the user and offer to install it. Don't skip the review without saying so.
 
 ---
 
@@ -643,7 +657,7 @@ The PR's own title and body are reviewable output, and a miss here is a finding 
 5. **Fits on one screen.**
 6. **Every file in the diff is one the ticket called for**, or the body says why it's there.
 
-Any miss is fixed before the draft goes to the user. Once the PR exists, `/bookworm:pr-review` covers the same ground against The Book — the check here exists so the user never sees a draft that would fail it.
+Any miss is fixed before the draft goes to the user. Once the PR exists, `/bookworm:pr-review` (Phase 8's Book review) covers the same ground against The Book — the check here exists so the user never sees a draft that would fail it.
 
 ---
 
@@ -702,6 +716,7 @@ Before recommending merge, confirm:
 6. No `(blocking)` comments unresolved.
 7. No scope creep that hasn't been discussed with reviewers.
 8. The branch still contains only this task's work.
+9. Both Book reviews (Phase 8) ran on the final diff, and their confirmed findings are addressed.
 
 If anything is off, surface to the user before they merge.
 
